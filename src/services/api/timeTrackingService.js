@@ -10,6 +10,7 @@ let timeEntries = [
     startTime: null,
     endTime: null,
     isManual: true,
+    billable: true,
     createdAt: "2024-01-25T10:00:00.000Z"
   },
   {
@@ -22,6 +23,7 @@ let timeEntries = [
     startTime: null,
     endTime: null,
     isManual: true,
+    billable: true,
     createdAt: "2024-01-24T14:00:00.000Z"
   },
   {
@@ -34,6 +36,7 @@ let timeEntries = [
     startTime: null,
     endTime: null,
     isManual: true,
+    billable: false,
     createdAt: "2024-01-23T16:00:00.000Z"
   }
 ]
@@ -92,7 +95,7 @@ export const timeTrackingService = {
     return timeEntries.filter(e => e.date === today)
   },
 
-  async create(entryData) {
+async create(entryData) {
     await delay(300)
     const newId = Math.max(...timeEntries.map(e => e.Id), 0) + 1
     const now = new Date().toISOString()
@@ -105,6 +108,7 @@ export const timeTrackingService = {
       duration: parseInt(entryData.duration),
       date: entryData.date || new Date().toISOString().split('T')[0],
       isManual: entryData.isManual !== undefined ? entryData.isManual : true,
+      billable: entryData.billable !== undefined ? entryData.billable : true,
       createdAt: now
     }
     
@@ -112,7 +116,7 @@ export const timeTrackingService = {
     return { ...newEntry }
   },
 
-  async update(id, entryData) {
+async update(id, entryData) {
     await delay(300)
     const index = timeEntries.findIndex(e => e.Id === parseInt(id))
     if (index === -1) {
@@ -125,7 +129,8 @@ export const timeTrackingService = {
       Id: parseInt(id),
       taskId: entryData.taskId ? parseInt(entryData.taskId) : timeEntries[index].taskId,
       projectId: entryData.projectId ? parseInt(entryData.projectId) : timeEntries[index].projectId,
-      duration: entryData.duration ? parseInt(entryData.duration) : timeEntries[index].duration
+      duration: entryData.duration ? parseInt(entryData.duration) : timeEntries[index].duration,
+      billable: entryData.billable !== undefined ? entryData.billable : timeEntries[index].billable
     }
     
     return { ...timeEntries[index] }

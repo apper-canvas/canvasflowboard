@@ -20,13 +20,14 @@ const [projects, setProjects] = useState([])
   
   // Manual entry form state
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
     projectId: "",
     taskId: "",
     date: new Date().toISOString().split('T')[0],
     hours: "",
     minutes: "",
-    description: ""
+    description: "",
+    billable: true
   })
   const [editingEntry, setEditingEntry] = useState(null)
   
@@ -118,7 +119,7 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
   )
   
   const handleOpenModal = (entry = null) => {
-    if (entry) {
+if (entry) {
       setEditingEntry(entry)
       setFormData({
         projectId: entry.projectId.toString(),
@@ -126,7 +127,8 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
         date: entry.date,
         hours: Math.floor(entry.duration / 3600).toString(),
         minutes: Math.floor((entry.duration % 3600) / 60).toString(),
-        description: entry.description || ""
+        description: entry.description || "",
+        billable: entry.billable !== undefined ? entry.billable : true
       })
     } else {
       setEditingEntry(null)
@@ -136,7 +138,8 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
         date: new Date().toISOString().split('T')[0],
         hours: "",
         minutes: "",
-        description: ""
+        description: "",
+        billable: true
       })
     }
     setIsModalOpen(true)
@@ -151,13 +154,14 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
     const duration = (parseInt(formData.hours || 0) * 3600) + (parseInt(formData.minutes || 0) * 60)
     
     try {
-      if (editingEntry) {
+if (editingEntry) {
         await timeTrackingService.update(editingEntry.Id, {
           projectId: formData.projectId,
           taskId: formData.taskId,
           date: formData.date,
           duration,
-          description: formData.description
+          description: formData.description,
+          billable: formData.billable
         })
         toast.success("Time entry updated successfully")
       } else {
@@ -166,7 +170,8 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
           taskId: formData.taskId,
           date: formData.date,
           duration,
-          description: formData.description
+          description: formData.description,
+          billable: formData.billable
         })
         toast.success("Time entry logged successfully")
       }
@@ -316,11 +321,16 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
                       {entry.description && (
                         <p className="text-sm text-slate-600 mb-2">{entry.description}</p>
                       )}
-                      <div className="flex items-center space-x-4 text-xs text-slate-500">
+<div className="flex items-center space-x-4 text-xs text-slate-500">
                         <span>{entry.date}</span>
                         {!entry.isManual && (
                           <Badge variant="secondary" className="text-xs">
                             Auto
+                          </Badge>
+                        )}
+                        {entry.billable !== undefined && (
+                          <Badge variant={entry.billable ? "default" : "secondary"} className="text-xs">
+                            {entry.billable ? "Billable" : "Non-billable"}
                           </Badge>
                         )}
                       </div>
@@ -441,8 +451,7 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
               />
             </div>
           </div>
-          
-          <div>
+<div>
             <label className="text-sm font-medium text-slate-700 mb-1.5 block">
               Description (Optional)
             </label>
@@ -453,6 +462,19 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
               className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm resize-none"
               rows={3}
             />
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="billable"
+              checked={formData.billable}
+              onChange={(e) => setFormData(prev => ({ ...prev, billable: e.target.checked }))}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <label htmlFor="billable" className="text-sm font-medium text-slate-700">
+              Billable hours
+            </label>
           </div>
           
           <div className="flex justify-end space-x-3 pt-4">
