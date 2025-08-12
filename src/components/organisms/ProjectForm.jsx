@@ -17,7 +17,7 @@ const ProjectForm = ({ project, onSubmit, onCancel }) => {
   const [errors, setErrors] = useState({})
   
   useEffect(() => {
-    if (project) {
+if (project) {
       setFormData({
         name: project.name,
         description: project.description,
@@ -67,7 +67,7 @@ const ProjectForm = ({ project, onSubmit, onCancel }) => {
     
     if (validateForm()) {
       const projectData = {
-        ...formData,
+...formData,
         deadline: new Date(formData.deadline).toISOString(),
         progress: Number(formData.progress)
       }

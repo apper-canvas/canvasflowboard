@@ -20,7 +20,7 @@ const [formData, setFormData] = useState({
   const [errors, setErrors] = useState({})
   
 useEffect(() => {
-    if (task) {
+if (task) {
       setFormData({
         title: task.title,
         description: task.description,

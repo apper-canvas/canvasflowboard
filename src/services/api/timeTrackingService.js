@@ -1,60 +1,6 @@
-// Mock data for time entries
-let timeEntries = [
-  {
-    Id: 1,
-    taskId: 1,
-    projectId: 1,
-    duration: 3600, // 1 hour in seconds
-    description: "Working on wireframes and mockups",
-    date: new Date().toISOString().split('T')[0], // Today's date
-    startTime: null,
-    endTime: null,
-    isManual: true,
-    billable: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    Id: 2,
-    taskId: 4,
-    projectId: 2,
-    duration: 7200, // 2 hours in seconds
-    description: "Comparing React Native vs Flutter",
-    date: new Date().toISOString().split('T')[0], // Today's date
-    startTime: null,
-    endTime: null,
-    isManual: true,
-    billable: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    Id: 3,
-    taskId: 6,
-    projectId: 3,
-    duration: 5400, // 1.5 hours in seconds
-    description: "Designing posts for Instagram and Facebook",
-    date: new Date().toISOString().split('T')[0], // Today's date
-    startTime: null,
-    endTime: null,
-    isManual: true,
-    billable: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    Id: 4,
-    taskId: 2,
-    projectId: 1,
-    duration: 2700, // 45 minutes in seconds
-    description: "User research and competitor analysis",
-    date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday's date
-    startTime: null,
-    endTime: null,
-    isManual: true,
-    billable: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString()
-  }
-]
+const { ApperClient } = window.ApperSDK
 
-// Active timer state
+// Active timer state (local storage for session persistence)
 let activeTimer = {
   isRunning: false,
   taskId: null,
@@ -64,141 +10,353 @@ let activeTimer = {
   description: ""
 }
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
 export const timeTrackingService = {
-  // Time entries CRUD
   async getAll() {
-    await delay(200)
-    return [...timeEntries]
+    try {
+      const apperClient = new ApperClient({
+        apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+        apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+      })
+      
+      const params = {
+        fields: [
+          { field: { Name: "Name" } },
+          { field: { Name: "Tags" } },
+          { field: { Name: "Owner" } },
+          { field: { Name: "CreatedOn" } },
+          { field: { Name: "CreatedBy" } },
+          { field: { Name: "ModifiedOn" } },
+          { field: { Name: "ModifiedBy" } },
+          { field: { Name: "duration_c" } },
+          { field: { Name: "description_c" } },
+          { field: { Name: "date_c" } },
+          { field: { Name: "start_time_c" } },
+          { field: { Name: "end_time_c" } },
+          { field: { Name: "is_manual_c" } },
+          { field: { Name: "billable_c" } },
+          { field: { Name: "created_at_c" } },
+          { field: { Name: "task_id_c" } },
+          { field: { Name: "project_id_c" } }
+        ],
+        orderBy: [{ fieldName: "CreatedOn", sorttype: "DESC" }],
+        pagingInfo: { limit: 500, offset: 0 }
+      }
+      
+      const response = await apperClient.fetchRecords('time_entry_c', params)
+      
+      if (!response.success) {
+        console.error(response.message)
+        throw new Error(response.message)
+      }
+      
+      if (!response.data || response.data.length === 0) {
+        return []
+      }
+      
+      return response.data.map(entry => ({
+        Id: entry.Id,
+        taskId: entry.task_id_c?.Id || entry.task_id_c,
+        projectId: entry.project_id_c?.Id || entry.project_id_c,
+        duration: entry.duration_c || 0,
+        description: entry.description_c || '',
+        date: entry.date_c,
+        startTime: entry.start_time_c,
+        endTime: entry.end_time_c,
+        isManual: entry.is_manual_c || false,
+        billable: entry.billable_c || false,
+        createdAt: entry.created_at_c || entry.CreatedOn
+      }))
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        console.error("Error fetching time entries:", error?.response?.data?.message)
+        throw new Error(error.response.data.message)
+      } else {
+        console.error("Error fetching time entries:", error.message)
+        throw error
+      }
+    }
   },
 
   async getById(id) {
-    await delay(150)
-    const entry = timeEntries.find(e => e.Id === parseInt(id))
-    if (!entry) {
-      throw new Error("Time entry not found")
-    }
-    return { ...entry }
-  },
-
-  async getByTaskId(taskId) {
-    await delay(200)
-    return timeEntries.filter(e => e.taskId === parseInt(taskId))
-  },
-
-  async getByProjectId(projectId) {
-    await delay(200)
-    return timeEntries.filter(e => e.projectId === parseInt(projectId))
-  },
-
-  async getByDateRange(startDate, endDate) {
-    await delay(200)
-    return timeEntries.filter(entry => {
-      const entryDate = new Date(entry.date)
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      return entryDate >= start && entryDate <= end
-    })
-  },
-
-async getTodayEntries() {
-    const today = new Date().toISOString().split('T')[0]
-    await delay(150)
-    return timeEntries.filter(e => e.date === today)
-  },
-
-  async getRecentTasks() {
-    await delay(200)
-    // Get unique task IDs from time entries in the last 7 days
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const recentEntries = timeEntries.filter(entry => entry.date >= sevenDaysAgo)
-    const recentTaskIds = [...new Set(recentEntries.map(entry => entry.taskId))]
-    
-    // Import task and project services dynamically to avoid circular imports
-    const { taskService } = await import('./taskService.js')
-    const { projectService } = await import('./projectService.js')
-    
-    const tasks = await taskService.getAll()
-    const projects = await projectService.getAll()
-    
-    // Return tasks with project info, sorted by most recent usage
-    const recentTasks = recentTaskIds
-      .map(taskId => {
-        const task = tasks.find(t => t.Id === taskId)
-        const project = projects.find(p => p.Id === task?.projectId)
-        return task ? { ...task, projectTitle: project?.title || 'Unknown Project' } : null
+    try {
+      const apperClient = new ApperClient({
+        apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+        apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
       })
-      .filter(Boolean)
-      .sort((a, b) => {
-        // Sort by most recent time entry
-        const aLatest = Math.max(...recentEntries.filter(e => e.taskId === a.Id).map(e => new Date(e.createdAt).getTime()))
-        const bLatest = Math.max(...recentEntries.filter(e => e.taskId === b.Id).map(e => new Date(e.createdAt).getTime()))
-        return bLatest - aLatest
-      })
-    
-    return recentTasks
-  },
-async create(entryData) {
-    await delay(300)
-    const newId = Math.max(...timeEntries.map(e => e.Id), 0) + 1
-    const now = new Date().toISOString()
-    
-    const newEntry = {
-      ...entryData,
-      Id: newId,
-      taskId: parseInt(entryData.taskId),
-      projectId: parseInt(entryData.projectId),
-      duration: parseInt(entryData.duration),
-      date: entryData.date || new Date().toISOString().split('T')[0],
-      isManual: entryData.isManual !== undefined ? entryData.isManual : true,
-      billable: entryData.billable !== undefined ? entryData.billable : true,
-      createdAt: now
+      
+      const params = {
+        fields: [
+          { field: { Name: "Name" } },
+          { field: { Name: "Tags" } },
+          { field: { Name: "Owner" } },
+          { field: { Name: "CreatedOn" } },
+          { field: { Name: "CreatedBy" } },
+          { field: { Name: "ModifiedOn" } },
+          { field: { Name: "ModifiedBy" } },
+          { field: { Name: "duration_c" } },
+          { field: { Name: "description_c" } },
+          { field: { Name: "date_c" } },
+          { field: { Name: "start_time_c" } },
+          { field: { Name: "end_time_c" } },
+          { field: { Name: "is_manual_c" } },
+          { field: { Name: "billable_c" } },
+          { field: { Name: "created_at_c" } },
+          { field: { Name: "task_id_c" } },
+          { field: { Name: "project_id_c" } }
+        ]
+      }
+      
+      const response = await apperClient.getRecordById('time_entry_c', parseInt(id), params)
+      
+      if (!response.success) {
+        console.error(response.message)
+        throw new Error(response.message)
+      }
+      
+      if (!response.data) {
+        throw new Error("Time entry not found")
+      }
+      
+      const entry = response.data
+      return {
+        Id: entry.Id,
+        taskId: entry.task_id_c?.Id || entry.task_id_c,
+        projectId: entry.project_id_c?.Id || entry.project_id_c,
+        duration: entry.duration_c || 0,
+        description: entry.description_c || '',
+        date: entry.date_c,
+        startTime: entry.start_time_c,
+        endTime: entry.end_time_c,
+        isManual: entry.is_manual_c || false,
+        billable: entry.billable_c || false,
+        createdAt: entry.created_at_c || entry.CreatedOn
+      }
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        console.error(`Error fetching time entry with ID ${id}:`, error?.response?.data?.message)
+        throw new Error(error.response.data.message)
+      } else {
+        console.error(`Error fetching time entry with ID ${id}:`, error.message)
+        throw error
+      }
     }
-    
-    timeEntries.push(newEntry)
-    return { ...newEntry }
   },
 
-async update(id, entryData) {
-    await delay(300)
-    const index = timeEntries.findIndex(e => e.Id === parseInt(id))
-    if (index === -1) {
-      throw new Error("Time entry not found")
+  async create(entryData) {
+    try {
+      const apperClient = new ApperClient({
+        apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+        apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+      })
+      
+      const now = new Date().toISOString()
+      
+      const params = {
+        records: [{
+          Name: entryData.description || 'Time Entry',
+          task_id_c: parseInt(entryData.taskId),
+          project_id_c: parseInt(entryData.projectId),
+          duration_c: parseInt(entryData.duration),
+          description_c: entryData.description,
+          date_c: entryData.date || new Date().toISOString().split('T')[0],
+          start_time_c: entryData.startTime,
+          end_time_c: entryData.endTime,
+          is_manual_c: entryData.isManual !== undefined ? entryData.isManual : true,
+          billable_c: entryData.billable !== undefined ? entryData.billable : true,
+          created_at_c: now
+        }]
+      }
+      
+      const response = await apperClient.createRecord('time_entry_c', params)
+      
+      if (!response.success) {
+        console.error(response.message)
+        throw new Error(response.message)
+      }
+      
+      if (response.results) {
+        const successfulRecords = response.results.filter(result => result.success)
+        const failedRecords = response.results.filter(result => !result.success)
+        
+        if (failedRecords.length > 0) {
+          console.error(`Failed to create time entries ${failedRecords.length} records:${JSON.stringify(failedRecords)}`)
+          
+          failedRecords.forEach(record => {
+            record.errors?.forEach(error => {
+              throw new Error(`${error.fieldLabel}: ${error.message}`)
+            })
+            if (record.message) throw new Error(record.message)
+          })
+        }
+        
+        const newEntry = successfulRecords[0].data
+        return {
+          Id: newEntry.Id,
+          taskId: newEntry.task_id_c?.Id || newEntry.task_id_c,
+          projectId: newEntry.project_id_c?.Id || newEntry.project_id_c,
+          duration: newEntry.duration_c || 0,
+          description: newEntry.description_c || '',
+          date: newEntry.date_c,
+          startTime: newEntry.start_time_c,
+          endTime: newEntry.end_time_c,
+          isManual: newEntry.is_manual_c || false,
+          billable: newEntry.billable_c || false,
+          createdAt: newEntry.created_at_c || newEntry.CreatedOn
+        }
+      }
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        console.error("Error creating time entry:", error?.response?.data?.message)
+        throw new Error(error.response.data.message)
+      } else {
+        console.error("Error creating time entry:", error.message)
+        throw error
+      }
     }
-    
-    timeEntries[index] = {
-      ...timeEntries[index],
-      ...entryData,
-      Id: parseInt(id),
-      taskId: entryData.taskId ? parseInt(entryData.taskId) : timeEntries[index].taskId,
-      projectId: entryData.projectId ? parseInt(entryData.projectId) : timeEntries[index].projectId,
-      duration: entryData.duration ? parseInt(entryData.duration) : timeEntries[index].duration,
-      billable: entryData.billable !== undefined ? entryData.billable : timeEntries[index].billable
+  },
+
+  async update(id, entryData) {
+    try {
+      const apperClient = new ApperClient({
+        apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+        apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+      })
+      
+      const updateData = {
+        Id: parseInt(id)
+      }
+      
+      // Only include updateable fields that were provided
+      if (entryData.taskId !== undefined) {
+        updateData.task_id_c = parseInt(entryData.taskId)
+      }
+      if (entryData.projectId !== undefined) {
+        updateData.project_id_c = parseInt(entryData.projectId)
+      }
+      if (entryData.duration !== undefined) {
+        updateData.duration_c = parseInt(entryData.duration)
+      }
+      if (entryData.description !== undefined) {
+        updateData.Name = entryData.description || 'Time Entry'
+        updateData.description_c = entryData.description
+      }
+      if (entryData.date !== undefined) {
+        updateData.date_c = entryData.date
+      }
+      if (entryData.startTime !== undefined) {
+        updateData.start_time_c = entryData.startTime
+      }
+      if (entryData.endTime !== undefined) {
+        updateData.end_time_c = entryData.endTime
+      }
+      if (entryData.isManual !== undefined) {
+        updateData.is_manual_c = entryData.isManual
+      }
+      if (entryData.billable !== undefined) {
+        updateData.billable_c = entryData.billable
+      }
+      
+      const params = {
+        records: [updateData]
+      }
+      
+      const response = await apperClient.updateRecord('time_entry_c', params)
+      
+      if (!response.success) {
+        console.error(response.message)
+        throw new Error(response.message)
+      }
+      
+      if (response.results) {
+        const successfulUpdates = response.results.filter(result => result.success)
+        const failedUpdates = response.results.filter(result => !result.success)
+        
+        if (failedUpdates.length > 0) {
+          console.error(`Failed to update time entries ${failedUpdates.length} records:${JSON.stringify(failedUpdates)}`)
+          
+          failedUpdates.forEach(record => {
+            record.errors?.forEach(error => {
+              throw new Error(`${error.fieldLabel}: ${error.message}`)
+            })
+            if (record.message) throw new Error(record.message)
+          })
+        }
+        
+        const updatedEntry = successfulUpdates[0].data
+        return {
+          Id: updatedEntry.Id,
+          taskId: updatedEntry.task_id_c?.Id || updatedEntry.task_id_c,
+          projectId: updatedEntry.project_id_c?.Id || updatedEntry.project_id_c,
+          duration: updatedEntry.duration_c || 0,
+          description: updatedEntry.description_c || '',
+          date: updatedEntry.date_c,
+          startTime: updatedEntry.start_time_c,
+          endTime: updatedEntry.end_time_c,
+          isManual: updatedEntry.is_manual_c || false,
+          billable: updatedEntry.billable_c || false,
+          createdAt: updatedEntry.created_at_c || updatedEntry.CreatedOn
+        }
+      }
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        console.error("Error updating time entry:", error?.response?.data?.message)
+        throw new Error(error.response.data.message)
+      } else {
+        console.error("Error updating time entry:", error.message)
+        throw error
+      }
     }
-    
-    return { ...timeEntries[index] }
   },
 
   async delete(id) {
-    await delay(250)
-    const index = timeEntries.findIndex(e => e.Id === parseInt(id))
-    if (index === -1) {
-      throw new Error("Time entry not found")
+    try {
+      const apperClient = new ApperClient({
+        apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+        apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+      })
+      
+      const params = {
+        RecordIds: [parseInt(id)]
+      }
+      
+      const response = await apperClient.deleteRecord('time_entry_c', params)
+      
+      if (!response.success) {
+        console.error(response.message)
+        throw new Error(response.message)
+      }
+      
+      if (response.results) {
+        const successfulDeletions = response.results.filter(result => result.success)
+        const failedDeletions = response.results.filter(result => !result.success)
+        
+        if (failedDeletions.length > 0) {
+          console.error(`Failed to delete time entries ${failedDeletions.length} records:${JSON.stringify(failedDeletions)}`)
+          
+          failedDeletions.forEach(record => {
+            if (record.message) throw new Error(record.message)
+          })
+        }
+        
+        return successfulDeletions.length > 0
+      }
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        console.error("Error deleting time entry:", error?.response?.data?.message)
+        throw new Error(error.response.data.message)
+      } else {
+        console.error("Error deleting time entry:", error.message)
+        throw error
+      }
     }
-    
-    timeEntries.splice(index, 1)
-    return true
   },
 
-  // Timer management
+  // Timer management (local state)
   async getActiveTimer() {
-    await delay(100)
     return { ...activeTimer }
   },
 
   async startTimer(taskId, projectId, description = "") {
-    await delay(200)
     if (activeTimer.isRunning) {
       throw new Error("Timer is already running")
     }
@@ -216,7 +374,6 @@ async update(id, entryData) {
   },
 
   async stopTimer() {
-    await delay(200)
     if (!activeTimer.isRunning) {
       throw new Error("No active timer running")
     }
@@ -250,7 +407,6 @@ async update(id, entryData) {
   },
 
   async pauseTimer() {
-    await delay(150)
     if (!activeTimer.isRunning) {
       throw new Error("No active timer running")
     }
@@ -267,7 +423,6 @@ async update(id, entryData) {
   },
 
   async resumeTimer() {
-    await delay(150)
     if (activeTimer.isRunning) {
       throw new Error("Timer is already running")
     }
@@ -283,7 +438,6 @@ async update(id, entryData) {
   },
 
   async resetTimer() {
-    await delay(100)
     activeTimer = {
       isRunning: false,
       taskId: null,
@@ -296,17 +450,39 @@ async update(id, entryData) {
     return { ...activeTimer }
   },
 
-  // Utility functions
-  async getTotalTimeForTask(taskId) {
-    await delay(150)
-    const taskEntries = timeEntries.filter(e => e.taskId === parseInt(taskId))
-    return taskEntries.reduce((total, entry) => total + entry.duration, 0)
+  async getRecentTasks() {
+    // Get tasks that have recent time entries
+    try {
+      const [tasks, entries] = await Promise.all([
+        this.getAll(),
+        this.getTodayEntries()
+      ])
+      
+      const recentTaskIds = [...new Set(entries.map(entry => entry.taskId))]
+      const { taskService } = await import('./taskService.js')
+      const { projectService } = await import('./projectService.js')
+      
+      const allTasks = await taskService.getAll()
+      const projects = await projectService.getAll()
+      
+      return recentTaskIds
+        .map(taskId => {
+          const task = allTasks.find(t => t.Id === taskId)
+          const project = projects.find(p => p.Id === task?.projectId)
+          return task ? { ...task, projectName: project?.name || 'Unknown Project' } : null
+        })
+        .filter(Boolean)
+        .slice(0, 10) // Limit to 10 recent tasks
+    } catch (error) {
+      console.error('Failed to load recent tasks:', error)
+      return []
+    }
   },
 
-  async getTotalTimeForProject(projectId) {
-    await delay(150)
-    const projectEntries = timeEntries.filter(e => e.projectId === parseInt(projectId))
-    return projectEntries.reduce((total, entry) => total + entry.duration, 0)
+  async getTodayEntries() {
+    const today = new Date().toISOString().split('T')[0]
+    const entries = await this.getAll()
+    return entries.filter(e => e.date === today)
   },
 
   formatDuration(seconds) {
