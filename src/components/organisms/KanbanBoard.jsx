@@ -15,8 +15,21 @@ const KanbanBoard = ({
   onUpdateStatus, 
   projectId 
 }) => {
-  const [draggedTask, setDraggedTask] = useState(null)
+const [draggedTask, setDraggedTask] = useState(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
+  const [collapsedColumns, setCollapsedColumns] = useState(new Set())
+
+  const toggleColumnCollapse = (columnId) => {
+    setCollapsedColumns(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(columnId)) {
+        newSet.delete(columnId)
+      } else {
+        newSet.add(columnId)
+      }
+      return newSet
+    })
+  }
 
   const columns = [
     { id: 'To Do', title: 'To Do', color: 'border-slate-300 bg-slate-50' },
@@ -138,153 +151,187 @@ const KanbanBoard = ({
             onDrop={(e) => handleDrop(e, column.id)}
           >
             {/* Column Header */}
-            <div className="p-4 border-b border-slate-200">
+<div className="p-4 border-b border-slate-200">
               <div className="flex items-center justify-between">
-                <h4 className="font-medium text-slate-900">{column.title}</h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleColumnCollapse(column.id)}
+                    className="p-1 hover:bg-slate-100 rounded transition-colors"
+                    title={collapsedColumns.has(column.id) ? 'Expand column' : 'Collapse column'}
+                  >
+                    <ApperIcon 
+                      name={collapsedColumns.has(column.id) ? "ChevronRight" : "ChevronDown"} 
+                      className="w-4 h-4 text-slate-500" 
+                    />
+                  </button>
+                  <h4 className="font-medium text-slate-900">{column.title}</h4>
+                </div>
                 <Badge variant="default" className="text-xs">
                   {tasksByStatus[column.id]?.length || 0}
                 </Badge>
               </div>
             </div>
 
-            {/* Tasks */}
-            <div className="flex-1 p-2 space-y-2 min-h-64">
-              <AnimatePresence>
-                {tasksByStatus[column.id]?.map((task, index) => {
-                  const urgency = getUrgencyIcon(task.dueDate)
-                  const priorityIcon = getPriorityIcon(task.priority)
-                  
-                  return (
-                    <motion.div
-                      key={task.Id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ delay: index * 0.05 }}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, task)}
-                      onDragEnd={handleDragEnd}
-                      className={cn(
-                        'kanban-card bg-white border border-slate-200 rounded-lg p-3 cursor-move shadow-sm hover:shadow-md transition-all duration-200',
-                        task.completed ? 'opacity-75' : '',
-                        draggedTask?.Id === task.Id ? 'opacity-50 rotate-2 scale-105' : ''
-                      )}
-                    >
-                      {/* Task Header */}
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <button
-                            onClick={() => onToggleComplete(task)}
-                            className="flex-shrink-0 mt-0.5"
+{/* Tasks */}
+            <AnimatePresence>
+              {!collapsedColumns.has(column.id) && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex-1 p-2 space-y-2 min-h-64">
+                    <AnimatePresence>
+                      {tasksByStatus[column.id]?.map((task, index) => {
+                        const urgency = getUrgencyIcon(task.dueDate)
+                        const priorityIcon = getPriorityIcon(task.priority)
+
+                        return (
+                          <motion.div
+                            key={task.Id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ delay: index * 0.05 }}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, task)}
+                            onDragEnd={handleDragEnd}
+                            className={cn(
+                              'kanban-card bg-white border border-slate-200 rounded-lg p-3 cursor-move shadow-sm hover:shadow-md transition-all duration-200',
+                              task.completed ? 'opacity-75' : '',
+                              draggedTask?.Id === task.Id ? 'opacity-50 rotate-2 scale-105' : ''
+                            )}
                           >
-                            <div className={cn(
-                              'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
-                              task.completed 
-                                ? 'bg-primary-500 border-primary-500' 
-                                : 'border-slate-300 hover:border-primary-400'
+                            {/* Task Header */}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <button
+                                  onClick={() => onToggleComplete(task)}
+                                  className="flex-shrink-0 mt-0.5"
+                                >
+                                  <div className={cn(
+                                    'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+                                    task.completed 
+                                      ? 'bg-primary-500 border-primary-500' 
+                                      : 'border-slate-300 hover:border-primary-400'
+                                  )}>
+                                    {task.completed && (
+                                      <ApperIcon name="Check" className="w-2.5 h-2.5 text-white" />
+                                    )}
+                                  </div>
+                                </button>
+                                <h5 className={cn(
+                                  'text-sm font-medium flex-1 min-w-0 truncate',
+                                  task.completed ? 'line-through text-slate-500' : 'text-slate-900'
+                                )}>
+                                  {task.title}
+                                </h5>
+                              </div>
+                              
+                              <div className="flex items-center gap-1 ml-2">
+                                <button
+                                  onClick={() => onEdit(task)}
+                                  className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
+                                >
+                                  <ApperIcon name="Edit" className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => onDelete(task)}
+                                  className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                                >
+                                  <ApperIcon name="Trash2" className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Task Description */}
+                            <p className={cn(
+                              'text-xs text-slate-600 mb-3 line-clamp-2',
+                              task.completed ? 'line-through text-slate-400' : ''
                             )}>
-                              {task.completed && (
-                                <ApperIcon name="Check" className="w-2.5 h-2.5 text-white" />
+                              {task.description}
+                            </p>
+
+                            {/* Task Metadata */}
+                            <div className="space-y-2">
+                              {/* Priority */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1">
+                                  <ApperIcon 
+                                    name={priorityIcon} 
+                                    className={cn(
+                                      'w-3 h-3',
+                                      task.priority === 'Critical' ? 'text-red-500' :
+                                      task.priority === 'High' ? 'text-orange-500' :
+                                      task.priority === 'Medium' ? 'text-blue-500' : 'text-green-500'
+                                    )} 
+                                  />
+                                  <Badge 
+                                    variant={getPriorityColor(task.priority)} 
+                                    className="text-xs px-1.5 py-0.5"
+                                  >
+                                    {task.priority}
+                                  </Badge>
+                                </div>
+                                
+                                {/* Assignee placeholder */}
+                                <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
+                                  <ApperIcon name="User" className="w-3 h-3 text-slate-500" />
+                                </div>
+                              </div>
+
+                              {/* Due Date */}
+                              <div className="flex items-center gap-1 text-xs">
+                                <ApperIcon 
+                                  name={urgency.icon} 
+                                  className={cn('w-3 h-3', urgency.color)} 
+                                />
+                                <span className={urgency.color}>
+                                  {formatDateShort(new Date(task.dueDate))}
+                                </span>
+                              </div>
+
+                              {/* Subtasks indicator */}
+                              {tasks.filter(t => t.parentId === task.Id).length > 0 && (
+                                <div className="flex items-center gap-1 text-xs text-slate-500">
+                                  <ApperIcon name="List" className="w-3 h-3" />
+                                  <span>
+                                    {tasks.filter(t => t.parentId === task.Id && t.completed).length}/
+                                    {tasks.filter(t => t.parentId === task.Id).length} subtasks
+                                  </span>
+                                </div>
                               )}
                             </div>
-                          </button>
-                          <h5 className={cn(
-                            'text-sm font-medium flex-1 min-w-0 truncate',
-                            task.completed ? 'line-through text-slate-500' : 'text-slate-900'
-                          )}>
-                            {task.title}
-                          </h5>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 ml-2">
-                          <button
-                            onClick={() => onEdit(task)}
-                            className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
-                          >
-                            <ApperIcon name="Edit" className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => onDelete(task)}
-                            className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                          >
-                            <ApperIcon name="Trash2" className="w-3 h-3" />
-                          </button>
+                          </motion.div>
+                        )
+                      })}
+                    </AnimatePresence>
+                    
+                    {/* Empty state for column */}
+                    {(!tasksByStatus[column.id] || tasksByStatus[column.id].length === 0) && (
+                      <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
+                        <div className="text-center">
+                          <ApperIcon name="Plus" className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p>Drop tasks here</p>
                         </div>
                       </div>
-
-                      {/* Task Description */}
-                      <p className={cn(
-                        'text-xs text-slate-600 mb-3 line-clamp-2',
-                        task.completed ? 'line-through text-slate-400' : ''
-                      )}>
-                        {task.description}
-                      </p>
-
-                      {/* Task Metadata */}
-                      <div className="space-y-2">
-                        {/* Priority */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <ApperIcon 
-                              name={priorityIcon} 
-                              className={cn(
-                                'w-3 h-3',
-                                task.priority === 'Critical' ? 'text-red-500' :
-                                task.priority === 'High' ? 'text-orange-500' :
-                                task.priority === 'Medium' ? 'text-blue-500' : 'text-green-500'
-                              )} 
-                            />
-                            <Badge 
-                              variant={getPriorityColor(task.priority)} 
-                              className="text-xs px-1.5 py-0.5"
-                            >
-                              {task.priority}
-                            </Badge>
-                          </div>
-                          
-                          {/* Assignee placeholder */}
-                          <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center">
-                            <ApperIcon name="User" className="w-3 h-3 text-slate-500" />
-                          </div>
-                        </div>
-
-                        {/* Due Date */}
-                        <div className="flex items-center gap-1 text-xs">
-                          <ApperIcon 
-                            name={urgency.icon} 
-                            className={cn('w-3 h-3', urgency.color)} 
-                          />
-                          <span className={urgency.color}>
-                            {formatDateShort(new Date(task.dueDate))}
-                          </span>
-                        </div>
-
-                        {/* Subtasks indicator */}
-                        {tasks.filter(t => t.parentId === task.Id).length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
-                            <ApperIcon name="List" className="w-3 h-3" />
-                            <span>
-                              {tasks.filter(t => t.parentId === task.Id && t.completed).length}/
-                              {tasks.filter(t => t.parentId === task.Id).length} subtasks
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
-              
-              {/* Empty state for column */}
-              {(!tasksByStatus[column.id] || tasksByStatus[column.id].length === 0) && (
-                <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
-                  <div className="text-center">
-                    <ApperIcon name="Plus" className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>Drop tasks here</p>
+                    )}
                   </div>
-                </div>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
+
+            {/* Collapsed state indicator */}
+            {collapsedColumns.has(column.id) && (
+              <div className="p-4 text-center text-slate-400 text-sm border-t border-slate-100">
+                <div className="flex items-center justify-center gap-2">
+                  <ApperIcon name="EyeOff" className="w-4 h-4" />
+                  <span>Column collapsed - {tasksByStatus[column.id]?.length || 0} tasks hidden</span>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
