@@ -1,0 +1,102 @@
+[
+  {
+    "Id": 1,
+    "projectId": 1,
+    "title": "Design new homepage layout",
+    "description": "Create wireframes and mockups for the new homepage design with improved navigation",
+    "priority": "High",
+    "dueDate": "2024-01-25T00:00:00.000Z",
+    "completed": true,
+    "createdAt": "2024-01-15T00:00:00.000Z"
+  },
+  {
+    "Id": 2,
+    "projectId": 1,
+    "title": "Implement responsive navigation",
+    "description": "Code responsive navigation menu that works across all device sizes",
+    "priority": "High",
+    "dueDate": "2024-01-27T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-16T00:00:00.000Z"
+  },
+  {
+    "Id": 3,
+    "projectId": 1,
+    "title": "Optimize page loading speed",
+    "description": "Implement lazy loading and image optimization to improve page performance",
+    "priority": "Medium",
+    "dueDate": "2024-02-01T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-17T00:00:00.000Z"
+  },
+  {
+    "Id": 4,
+    "projectId": 2,
+    "title": "Research cross-platform frameworks",
+    "description": "Evaluate React Native vs Flutter for mobile app development",
+    "priority": "High",
+    "dueDate": "2024-01-26T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-18T00:00:00.000Z"
+  },
+  {
+    "Id": 5,
+    "projectId": 2,
+    "title": "Create app wireframes",
+    "description": "Design wireframes for all main screens and user flows",
+    "priority": "Medium",
+    "dueDate": "2024-02-05T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-19T00:00:00.000Z"
+  },
+  {
+    "Id": 6,
+    "projectId": 3,
+    "title": "Create social media content",
+    "description": "Design and write posts for Facebook, Instagram, and LinkedIn",
+    "priority": "High",
+    "dueDate": "2024-01-26T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-20T00:00:00.000Z"
+  },
+  {
+    "Id": 7,
+    "projectId": 3,
+    "title": "Set up email automation",
+    "description": "Configure email marketing automation sequences for lead nurturing",
+    "priority": "Medium",
+    "dueDate": "2024-01-29T00:00:00.000Z",
+    "completed": true,
+    "createdAt": "2024-01-21T00:00:00.000Z"
+  },
+  {
+    "Id": 8,
+    "projectId": 4,
+    "title": "Backup current database",
+    "description": "Create full backup of existing database before migration",
+    "priority": "High",
+    "dueDate": "2024-02-10T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-22T00:00:00.000Z"
+  },
+  {
+    "Id": 9,
+    "projectId": 5,
+    "title": "Conduct training sessions",
+    "description": "Lead hands-on training sessions for development team",
+    "priority": "Medium",
+    "dueDate": "2024-01-18T00:00:00.000Z",
+    "completed": true,
+    "createdAt": "2024-01-10T00:00:00.000Z"
+  },
+  {
+    "Id": 10,
+    "projectId": 5,
+    "title": "Create training materials",
+    "description": "Develop comprehensive documentation and tutorials",
+    "priority": "Low",
+    "dueDate": "2024-01-19T00:00:00.000Z",
+    "completed": true,
+    "createdAt": "2024-01-11T00:00:00.000Z"
+  }
+]

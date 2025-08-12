@@ -1,0 +1,47 @@
+[
+  {
+    "Id": 1,
+    "name": "Website Redesign",
+    "description": "Complete overhaul of the company website with modern UI/UX design and improved user experience",
+    "status": "In Progress",
+    "deadline": "2024-02-15T00:00:00.000Z",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "progress": 65
+  },
+  {
+    "Id": 2,
+    "name": "Mobile App Development",
+    "description": "Develop a cross-platform mobile application for iOS and Android with user authentication and real-time features",
+    "status": "Planning",
+    "deadline": "2024-03-30T00:00:00.000Z",
+    "createdAt": "2024-01-05T00:00:00.000Z",
+    "progress": 15
+  },
+  {
+    "Id": 3,
+    "name": "Marketing Campaign Q1",
+    "description": "Launch comprehensive marketing campaign for Q1 including social media, email marketing, and content creation",
+    "status": "In Progress",
+    "deadline": "2024-01-28T00:00:00.000Z",
+    "createdAt": "2024-01-10T00:00:00.000Z",
+    "progress": 80
+  },
+  {
+    "Id": 4,
+    "name": "Database Migration",
+    "description": "Migrate legacy database to new cloud infrastructure with minimal downtime and data integrity",
+    "status": "On Hold",
+    "deadline": "2024-02-28T00:00:00.000Z",
+    "createdAt": "2024-01-12T00:00:00.000Z",
+    "progress": 30
+  },
+  {
+    "Id": 5,
+    "name": "Team Training Program",
+    "description": "Implement comprehensive training program for new development frameworks and best practices",
+    "status": "Completed",
+    "deadline": "2024-01-20T00:00:00.000Z",
+    "createdAt": "2023-12-15T00:00:00.000Z",
+    "progress": 100
+  }
+]
