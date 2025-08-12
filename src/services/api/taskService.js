@@ -1,3 +1,5 @@
+import React from "react";
+import Error from "@/components/ui/Error";
 import tasksData from "@/services/mockData/tasks.json";
 let tasks = [...tasksData.map(task => ({
   ...task,
@@ -230,8 +232,42 @@ getTaskDepth(taskId) {
     while (currentTask && currentTask.parentId) {
       depth++
       currentTask = tasks.find(t => t.Id === currentTask.parentId)
-    }
+}
     
     return depth
+  },
+
+  async quickUpdateTitle(id, title) {
+    await delay(200)
+    const index = tasks.findIndex(t => t.Id === parseInt(id))
+    if (index === -1) {
+      throw new Error("Task not found")
+    }
+    
+    const now = new Date().toISOString()
+    tasks[index] = {
+      ...tasks[index],
+      title: title.trim(),
+      lastUpdated: now
+    }
+    
+    return { ...tasks[index] }
+  },
+
+  async quickUpdateDueDate(id, dueDate) {
+    await delay(200)
+    const index = tasks.findIndex(t => t.Id === parseInt(id))
+    if (index === -1) {
+      throw new Error("Task not found")
+    }
+    
+    const now = new Date().toISOString()
+    tasks[index] = {
+      ...tasks[index],
+      dueDate,
+      lastUpdated: now
+    }
+    
+    return { ...tasks[index] }
   }
 }

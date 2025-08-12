@@ -1,10 +1,269 @@
-import React, { useState, useMemo } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import ApperIcon from '@/components/ApperIcon'
-import Button from '@/components/atoms/Button'
-import Badge from '@/components/atoms/Badge'
-import { formatDateShort, getUrgencyLevel } from '@/utils/dateUtils'
-import { cn } from '@/utils/cn'
+import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import ApperIcon from "@/components/ApperIcon";
+import Modal from "@/components/molecules/Modal";
+import Button from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Input from "@/components/atoms/Input";
+import { formatDateShort, getUrgencyLevel } from "@/utils/dateUtils";
+import { cn } from "@/utils/cn";
+
+// Task Detail Modal Component
+const TaskDetailModal = ({ task, isOpen, onClose, onUpdate, tasks }) => {
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editingDueDate, setEditingDueDate] = useState(false)
+  const [title, setTitle] = useState(task?.title || '')
+  const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.split('T')[0] : '')
+
+  React.useEffect(() => {
+    if (task) {
+      setTitle(task.title)
+      setDueDate(task.dueDate ? task.dueDate.split('T')[0] : '')
+    }
+  }, [task])
+
+  const handleTitleSave = async () => {
+    if (title.trim() && title !== task.title) {
+      await onUpdate(task.Id, { title: title.trim() })
+    }
+    setEditingTitle(false)
+  }
+
+  const handleDueDateSave = async () => {
+    const newDueDate = new Date(dueDate).toISOString()
+    if (dueDate && newDueDate !== task.dueDate) {
+      await onUpdate(task.Id, { dueDate: newDueDate })
+    }
+    setEditingDueDate(false)
+  }
+
+  const subtasks = tasks.filter(t => t.parentId === task?.Id)
+  const completedSubtasks = subtasks.filter(t => t.completed).length
+  const urgency = getUrgencyLevel(task?.dueDate)
+  const priorityIcon = task?.priority === 'Critical' ? 'AlertTriangle' : 
+                      task?.priority === 'High' ? 'ArrowUp' : 
+                      task?.priority === 'Medium' ? 'Minus' : 'ArrowDown'
+
+  if (!task) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Task Details" size="lg">
+      <div className="space-y-6">
+        {/* Title Section */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
+          {editingTitle ? (
+            <div className="flex gap-2">
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTitleSave()
+                  if (e.key === 'Escape') {
+                    setTitle(task.title)
+                    setEditingTitle(false)
+                  }
+                }}
+                className="flex-1"
+                autoFocus
+              />
+              <Button size="sm" onClick={handleTitleSave}>
+                <ApperIcon name="Check" className="w-4 h-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                setTitle(task.title)
+                setEditingTitle(false)
+              }}>
+                <ApperIcon name="X" className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 group">
+              <h3 className="text-lg font-semibold text-slate-900 flex-1">{task.title}</h3>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingTitle(true)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ApperIcon name="Edit" className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Due Date Section */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Due Date</label>
+          {editingDueDate ? (
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleDueDateSave()
+                  if (e.key === 'Escape') {
+                    setDueDate(task.dueDate ? task.dueDate.split('T')[0] : '')
+                    setEditingDueDate(false)
+                  }
+                }}
+                className="flex-1"
+                autoFocus
+              />
+              <Button size="sm" onClick={handleDueDateSave}>
+                <ApperIcon name="Check" className="w-4 h-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                setDueDate(task.dueDate ? task.dueDate.split('T')[0] : '')
+                setEditingDueDate(false)
+              }}>
+                <ApperIcon name="X" className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 group">
+              <div className="flex items-center gap-2 flex-1">
+                <ApperIcon 
+                  name={urgency === "overdue" ? "AlertCircle" : urgency === "urgent" ? "Clock" : "Calendar"}
+                  className={cn(
+                    'w-4 h-4',
+                    urgency === "overdue" ? 'text-red-500' :
+                    urgency === "urgent" ? 'text-orange-500' : 'text-slate-400'
+                  )} 
+                />
+                <span className={cn(
+                  'text-sm',
+                  urgency === "overdue" ? 'text-red-500' :
+                  urgency === "urgent" ? 'text-orange-500' : 'text-slate-600'
+                )}>
+                  {formatDateShort(new Date(task.dueDate))}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingDueDate(true)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ApperIcon name="Edit" className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Task Information Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+            <div className="flex items-center gap-2">
+              <ApperIcon 
+                name={priorityIcon}
+                className={cn(
+                  'w-4 h-4',
+                  task.priority === 'Critical' ? 'text-red-500' :
+                  task.priority === 'High' ? 'text-orange-500' :
+                  task.priority === 'Medium' ? 'text-blue-500' : 'text-green-500'
+                )} 
+              />
+              <Badge 
+                variant={task.priority === 'Critical' ? 'error' :
+                        task.priority === 'High' ? 'warning' :
+                        task.priority === 'Medium' ? 'info' : 'success'} 
+                className="text-xs"
+              >
+                {task.priority}
+              </Badge>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <Badge 
+              variant={task.status === 'Done' ? 'success' :
+                      task.status === 'In Progress' ? 'warning' :
+                      task.status === 'Review' ? 'info' : 'default'}
+              className="text-xs"
+            >
+              {task.status}
+            </Badge>
+          </div>
+
+          {subtasks.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Subtasks</label>
+              <div className="flex items-center gap-2">
+                <ApperIcon name="List" className="w-4 h-4 text-slate-400" />
+                <span className="text-sm text-slate-600">
+                  {completedSubtasks}/{subtasks.length} completed
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Completion</label>
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                'w-4 h-4 rounded border-2 flex items-center justify-center',
+                task.completed 
+                  ? 'bg-primary-500 border-primary-500' 
+                  : 'border-slate-300'
+              )}>
+                {task.completed && (
+                  <ApperIcon name="Check" className="w-2.5 h-2.5 text-white" />
+                )}
+              </div>
+              <span className="text-sm text-slate-600">
+                {task.completed ? 'Completed' : 'In Progress'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
+          <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
+            {task.description}
+          </p>
+        </div>
+
+        {/* Subtasks List */}
+        {subtasks.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Subtasks</label>
+            <div className="space-y-2">
+              {subtasks.map(subtask => (
+                <div key={subtask.Id} className="flex items-center gap-2 p-2 bg-slate-50 rounded">
+                  <div className={cn(
+                    'w-3 h-3 rounded border flex items-center justify-center',
+                    subtask.completed 
+                      ? 'bg-primary-500 border-primary-500' 
+                      : 'border-slate-300'
+                  )}>
+                    {subtask.completed && (
+                      <ApperIcon name="Check" className="w-2 h-2 text-white" />
+                    )}
+                  </div>
+                  <span className={cn(
+                    'text-xs flex-1',
+                    subtask.completed ? 'line-through text-slate-400' : 'text-slate-600'
+                  )}>
+                    {subtask.title}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {formatDateShort(new Date(subtask.dueDate))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
 
 const KanbanBoard = ({ 
   tasks, 
@@ -13,11 +272,14 @@ const KanbanBoard = ({
   onDelete, 
   onAdd, 
   onUpdateStatus, 
+  onUpdate,
   projectId 
 }) => {
-const [draggedTask, setDraggedTask] = useState(null)
+  const [draggedTask, setDraggedTask] = useState(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
   const [collapsedColumns, setCollapsedColumns] = useState(new Set())
+  const [selectedTask, setSelectedTask] = useState(null)
+  const [showTaskModal, setShowTaskModal] = useState(false)
 
   const toggleColumnCollapse = (columnId) => {
     setCollapsedColumns(prev => {
@@ -189,7 +451,7 @@ const [draggedTask, setDraggedTask] = useState(null)
                         const priorityIcon = getPriorityIcon(task.priority)
 
                         return (
-                          <motion.div
+<motion.div
                             key={task.Id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -198,17 +460,24 @@ const [draggedTask, setDraggedTask] = useState(null)
                             draggable
                             onDragStart={(e) => handleDragStart(e, task)}
                             onDragEnd={handleDragEnd}
+                            onClick={() => {
+                              setSelectedTask(task)
+                              setShowTaskModal(true)
+                            }}
                             className={cn(
-                              'kanban-card bg-white border border-slate-200 rounded-lg p-3 cursor-move shadow-sm hover:shadow-md transition-all duration-200',
+                              'kanban-card bg-white border border-slate-200 rounded-lg p-3 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200',
                               task.completed ? 'opacity-75' : '',
-                              draggedTask?.Id === task.Id ? 'opacity-50 rotate-2 scale-105' : ''
+                              draggedTask?.Id === task.Id ? 'opacity-50 rotate-2 scale-105 cursor-grabbing' : ''
                             )}
                           >
                             {/* Task Header */}
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <button
-                                  onClick={() => onToggleComplete(task)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onToggleComplete(task)
+                                  }}
                                   className="flex-shrink-0 mt-0.5"
                                 >
                                   <div className={cn(
@@ -232,13 +501,19 @@ const [draggedTask, setDraggedTask] = useState(null)
                               
                               <div className="flex items-center gap-1 ml-2">
                                 <button
-                                  onClick={() => onEdit(task)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onEdit(task)
+                                  }}
                                   className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
                                 >
                                   <ApperIcon name="Edit" className="w-3 h-3" />
                                 </button>
                                 <button
-                                  onClick={() => onDelete(task)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onDelete(task)
+                                  }}
                                   className="p-1 text-slate-400 hover:text-red-600 transition-colors"
                                 >
                                   <ApperIcon name="Trash2" className="w-3 h-3" />
@@ -302,22 +577,12 @@ const [draggedTask, setDraggedTask] = useState(null)
                                     {tasks.filter(t => t.parentId === task.Id).length} subtasks
                                   </span>
                                 </div>
-                              )}
+)}
                             </div>
                           </motion.div>
                         )
                       })}
                     </AnimatePresence>
-                    
-                    {/* Empty state for column */}
-                    {(!tasksByStatus[column.id] || tasksByStatus[column.id].length === 0) && (
-                      <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
-                        <div className="text-center">
-                          <ApperIcon name="Plus" className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p>Drop tasks here</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </motion.div>
               )}
@@ -335,6 +600,18 @@ const [draggedTask, setDraggedTask] = useState(null)
           </div>
         ))}
       </div>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={selectedTask}
+        isOpen={showTaskModal}
+        onClose={() => {
+          setShowTaskModal(false)
+          setSelectedTask(null)
+        }}
+        onUpdate={onUpdate}
+        tasks={tasks}
+      />
 
       {/* Empty state for entire board */}
       {tasks.filter(task => !task.parentId && (!projectId || task.projectId === projectId)).length === 0 && (

@@ -6,6 +6,7 @@ import ApperIcon from "@/components/ApperIcon";
 import Header from "@/components/organisms/Header";
 import TaskForm from "@/components/organisms/TaskForm";
 import TaskList from "@/components/organisms/TaskList";
+import KanbanBoard from "@/components/organisms/KanbanBoard";
 import ConfirmDialog from "@/components/molecules/ConfirmDialog";
 import Modal from "@/components/molecules/Modal";
 import SearchBar from "@/components/molecules/SearchBar";
@@ -23,7 +24,8 @@ const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   
-  // Filter states
+  // View and Filter states
+  const [viewMode, setViewMode] = useState("list") // "list" or "board"
   const [searchTerm, setSearchTerm] = useState("")
   const [priorityFilter, setPriorityFilter] = useState("All")
   const [statusFilter, setStatusFilter] = useState("All")
@@ -35,6 +37,7 @@ const [tasks, setTasks] = useState([])
   const [selectedTask, setSelectedTask] = useState(null)
   const [taskToDelete, setTaskToDelete] = useState(null)
   const [parentTaskId, setParentTaskId] = useState(null)
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -80,8 +83,8 @@ const handleEditTask = (task) => {
     setShowDeleteDialog(true)
   }
   
-  const handleTaskSubmit = async (taskData) => {
-try {
+const handleTaskSubmit = async (taskData) => {
+    try {
       if (selectedTask) {
         const updatedTask = await taskService.update(selectedTask.Id, taskData)
         setTasks(prev => 
@@ -103,6 +106,19 @@ try {
     } catch (err) {
       toast.error("Failed to save task. Please try again.")
       console.error("Task save error:", err)
+    }
+  }
+
+  const handleQuickUpdate = async (taskId, updateData) => {
+    try {
+      const updatedTask = await taskService.update(taskId, updateData)
+      setTasks(prev => 
+        prev.map(t => t.Id === taskId ? updatedTask : t)
+      )
+      toast.success("Task updated successfully!")
+    } catch (err) {
+      toast.error("Failed to update task. Please try again.")
+      console.error("Task update error:", err)
     }
   }
   
@@ -204,21 +220,59 @@ const filteredTasks = tasks.filter(task => {
         }
       />
       
-      <div className="flex-1 p-6">
-        {/* Filters */}
+<div className="flex-1 p-6">
+        {/* View Toggle and Filters */}
         <div className="bg-white rounded-lg border border-slate-200 p-6 mb-6 shadow-card">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* View Toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">View:</span>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors ${
+                    viewMode === "list"
+                      ? "bg-primary-500 text-white"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <ApperIcon name="List" className="w-4 h-4" />
+                  List
+                </button>
+                <button
+                  onClick={() => setViewMode("board")}
+                  className={`px-3 py-1.5 text-sm flex items-center gap-1 transition-colors ${
+                    viewMode === "board"
+                      ? "bg-primary-500 text-white"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <ApperIcon name="Columns" className="w-4 h-4" />
+                  Board
+                </button>
+              </div>
+            </div>
+
+            <Button onClick={handleCreateTask}>
+              <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
+              Add Task
+            </Button>
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <SearchBar
               placeholder="Search tasks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="lg:col-span-2"
+              className="lg:col-span-1"
             />
             <Select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
             >
               <option value="All">All Priorities</option>
+              <option value="Critical">Critical</option>
               <option value="High">High</option>
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
@@ -228,8 +282,10 @@ const filteredTasks = tasks.filter(task => {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
+              <option value="To Do">To Do</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Review">Review</option>
+              <option value="Done">Done</option>
             </Select>
             <Select
               value={projectFilter}
@@ -245,7 +301,7 @@ const filteredTasks = tasks.filter(task => {
           </div>
         </div>
         
-{/* Tasks List */}
+{/* Tasks Content */}
         {filteredTasks.length === 0 ? (
           tasks.length === 0 ? (
             <Empty
@@ -262,7 +318,7 @@ const filteredTasks = tasks.filter(task => {
               description="Try adjusting your search terms or filters to find what you're looking for."
             />
           )
-        ) : (
+        ) : viewMode === "list" ? (
           <TaskList 
             tasks={filteredTasks}
             onToggleComplete={handleToggleComplete}
@@ -272,7 +328,18 @@ const filteredTasks = tasks.filter(task => {
             onAddSubtask={handleCreateSubtask}
             onUpdateStatus={handleUpdateStatus}
           />
-)}
+        ) : (
+          <KanbanBoard
+            tasks={filteredTasks}
+            onToggleComplete={handleToggleComplete}
+            onEdit={handleEditTask}
+            onDelete={handleDeleteTask}
+            onAdd={handleCreateTask}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdate={handleQuickUpdate}
+            projectId={null}
+          />
+        )}
 
       {/* Task Modal */}
       <Modal
