@@ -4,26 +4,29 @@ import FormField from "@/components/molecules/FormField"
 import Select from "@/components/atoms/Select"
 import Textarea from "@/components/atoms/Textarea"
 import { format } from "date-fns"
+import ApperIcon from "@/components/ApperIcon"
 
-const TaskForm = ({ task, projectId, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState({
+const TaskForm = ({ task, projectId, parentId, onSubmit, onCancel }) => {
+const [formData, setFormData] = useState({
     title: "",
     description: "",
     priority: "Medium",
     dueDate: "",
-    projectId: projectId || ""
+    projectId: projectId || "",
+    parentId: parentId || ""
   })
   
   const [errors, setErrors] = useState({})
   
-  useEffect(() => {
+useEffect(() => {
     if (task) {
       setFormData({
         title: task.title,
         description: task.description,
         priority: task.priority,
         dueDate: format(new Date(task.dueDate), "yyyy-MM-dd"),
-        projectId: task.projectId
+        projectId: task.projectId,
+        parentId: task.parentId || ""
       })
     }
   }, [task])
@@ -58,10 +61,11 @@ const TaskForm = ({ task, projectId, onSubmit, onCancel }) => {
     e.preventDefault()
     
     if (validateForm()) {
-      const taskData = {
+const taskData = {
         ...formData,
         dueDate: new Date(formData.dueDate).toISOString(),
-        completed: task?.completed || false
+        completed: task?.completed || false,
+        parentId: formData.parentId || parentId || null
       }
       
       onSubmit(taskData)
@@ -107,8 +111,7 @@ const TaskForm = ({ task, projectId, onSubmit, onCancel }) => {
             <option value="High">High</option>
           </Select>
         </FormField>
-        
-        <FormField
+<FormField
           label="Due Date"
           required
           type="date"
@@ -118,6 +121,14 @@ const TaskForm = ({ task, projectId, onSubmit, onCancel }) => {
         />
       </div>
       
+      {parentId && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-blue-800">
+            <ApperIcon name="ArrowRight" className="w-4 h-4" />
+            <span>This will be created as a subtask</span>
+          </div>
+        </div>
+      )}
       <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel

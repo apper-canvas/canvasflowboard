@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from "react"
-import { toast } from "react-toastify"
-import Header from "@/components/organisms/Header"
-import SearchBar from "@/components/molecules/SearchBar"
-import Modal from "@/components/molecules/Modal"
-import ConfirmDialog from "@/components/molecules/ConfirmDialog"
-import TaskForm from "@/components/organisms/TaskForm"
-import Button from "@/components/atoms/Button"
-import Select from "@/components/atoms/Select"
-import Badge from "@/components/atoms/Badge"
-import Loading from "@/components/ui/Loading"
-import Error from "@/components/ui/Error"
-import Empty from "@/components/ui/Empty"
-import ApperIcon from "@/components/ApperIcon"
-import { formatDateShort, getUrgencyLevel, getUrgencyIcon } from "@/utils/dateUtils"
-import { taskService } from "@/services/api/taskService"
-import { projectService } from "@/services/api/projectService"
-
+import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import { taskService } from "@/services/api/taskService";
+import { projectService } from "@/services/api/projectService";
+import ApperIcon from "@/components/ApperIcon";
+import Header from "@/components/organisms/Header";
+import TaskForm from "@/components/organisms/TaskForm";
+import TaskList from "@/components/organisms/TaskList";
+import ConfirmDialog from "@/components/molecules/ConfirmDialog";
+import Modal from "@/components/molecules/Modal";
+import SearchBar from "@/components/molecules/SearchBar";
+import Loading from "@/components/ui/Loading";
+import Error from "@/components/ui/Error";
+import Empty from "@/components/ui/Empty";
+import Select from "@/components/atoms/Select";
+import Button from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Projects from "@/components/pages/Projects";
+import { formatDateShort, getUrgencyIcon, getUrgencyLevel } from "@/utils/dateUtils";
 const Tasks = () => {
-  const [tasks, setTasks] = useState([])
+const [tasks, setTasks] = useState([])
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -33,7 +34,7 @@ const Tasks = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [taskToDelete, setTaskToDelete] = useState(null)
-  
+  const [parentTaskId, setParentTaskId] = useState(null)
   const loadData = async () => {
     try {
       setLoading(true)
@@ -56,29 +57,41 @@ const Tasks = () => {
     loadData()
   }, [])
   
-  const handleCreateTask = () => {
+const handleCreateTask = () => {
     setSelectedTask(null)
+    setParentTaskId(null)
+    setShowTaskModal(true)
+  }
+
+  const handleCreateSubtask = (parentId) => {
+    setSelectedTask(null)
+    setParentTaskId(parentId)
     setShowTaskModal(true)
   }
   
-  const handleEditTask = (task) => {
+  
+const handleEditTask = (task) => {
     setSelectedTask(task)
+    setParentTaskId(task.parentId)
     setShowTaskModal(true)
   }
-  
   const handleDeleteTask = (task) => {
     setTaskToDelete(task)
     setShowDeleteDialog(true)
   }
   
   const handleTaskSubmit = async (taskData) => {
-    try {
+try {
       if (selectedTask) {
         const updatedTask = await taskService.update(selectedTask.Id, taskData)
         setTasks(prev => 
           prev.map(t => t.Id === selectedTask.Id ? updatedTask : t)
         )
         toast.success("Task updated successfully!")
+      } else if (parentTaskId) {
+        const newSubtask = await taskService.createSubtask(parentTaskId, taskData)
+        setTasks(prev => [...prev, newSubtask])
+        toast.success("Subtask created successfully!")
       } else {
         const newTask = await taskService.create(taskData)
         setTasks(prev => [...prev, newTask])
@@ -86,6 +99,7 @@ const Tasks = () => {
       }
       setShowTaskModal(false)
       setSelectedTask(null)
+      setParentTaskId(null)
     } catch (err) {
       toast.error("Failed to save task. Please try again.")
       console.error("Task save error:", err)
@@ -103,7 +117,7 @@ const Tasks = () => {
     }
   }
   
-  const handleToggleComplete = async (task) => {
+const handleToggleComplete = async (task) => {
     try {
       const updatedTask = await taskService.toggleComplete(task.Id)
       setTasks(prev => 
@@ -114,6 +128,19 @@ const Tasks = () => {
       toast.error("Failed to update task. Please try again.")
       console.error("Task toggle error:", err)
     }
+  }
+
+  const handleUpdateStatus = async (task, newStatus) => {
+    try {
+      const updatedTask = await taskService.updateStatus(task.Id, newStatus)
+      setTasks(prev => 
+        prev.map(t => t.Id === task.Id ? updatedTask : t)
+      )
+      toast.success(`Task status updated to ${newStatus}!`)
+    } catch (err) {
+      toast.error("Failed to update task status. Please try again.")
+      console.error("Task status update error:", err)
+}
   }
   
   const getProjectName = (projectId) => {
@@ -130,14 +157,7 @@ const Tasks = () => {
     }
   }
   
-  const getUrgencyIcon = (dueDate) => {
-    const level = getUrgencyLevel(dueDate)
-    if (level === "overdue") return { icon: "AlertCircle", color: "text-red-500" }
-    if (level === "urgent") return { icon: "Clock", color: "text-orange-500" }
-    return { icon: "Calendar", color: "text-slate-400" }
-  }
-  
-  const filteredTasks = tasks.filter(task => {
+const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesPriority = priorityFilter === "All" || task.priority === priorityFilter
@@ -225,7 +245,7 @@ const Tasks = () => {
           </div>
         </div>
         
-        {/* Tasks List */}
+{/* Tasks List */}
         {filteredTasks.length === 0 ? (
           tasks.length === 0 ? (
             <Empty
@@ -243,122 +263,39 @@ const Tasks = () => {
             />
           )
         ) : (
-          <div className="bg-white rounded-lg border border-slate-200 shadow-card">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-700">Task</th>
-                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-700">Project</th>
-                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-700">Priority</th>
-                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-700">Due Date</th>
-                    <th className="text-left px-6 py-4 text-sm font-medium text-slate-700">Status</th>
-                    <th className="text-right px-6 py-4 text-sm font-medium text-slate-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredTasks.map((task) => {
-                    const urgency = getUrgencyIcon(task.dueDate)
-                    
-                    return (
-                      <tr key={task.Id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-start space-x-3">
-                            <button
-                              onClick={() => handleToggleComplete(task)}
-                              className="mt-1"
-                            >
-                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                                task.completed 
-                                  ? "bg-primary-500 border-primary-500" 
-                                  : "border-slate-300 hover:border-primary-400"
-                              }`}>
-                                {task.completed && (
-                                  <ApperIcon name="Check" className="w-2.5 h-2.5 text-white" />
-                                )}
-                              </div>
-                            </button>
-                            <div className="min-w-0 flex-1">
-                              <p className={`text-sm font-medium ${
-                                task.completed ? "line-through text-slate-500" : "text-slate-900"
-                              }`}>
-                                {task.title}
-                              </p>
-                              <p className={`text-sm mt-1 ${
-                                task.completed ? "line-through text-slate-400" : "text-slate-600"
-                              }`}>
-                                {task.description}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-slate-600">
-                            {getProjectName(task.projectId)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge variant={getPriorityColor(task.priority)}>
-                            {task.priority}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center text-sm">
-                            <ApperIcon name={urgency.icon} className={`w-4 h-4 mr-2 ${urgency.color}`} />
-                            <span className={urgency.color}>
-                              {formatDateShort(new Date(task.dueDate))}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge variant={task.completed ? "completed" : "progress"}>
-                            {task.completed ? "Completed" : "Pending"}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end space-x-2">
-                            <button
-                              onClick={() => handleEditTask(task)}
-                              className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
-                            >
-                              <ApperIcon name="Edit" className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTask(task)}
-                              className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                            >
-                              <ApperIcon name="Trash2" className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <TaskList 
+            tasks={filteredTasks}
+            onToggleComplete={handleToggleComplete}
+            onEdit={handleEditTask}
+            onDelete={handleDeleteTask}
+            onAdd={handleCreateTask}
+            onAddSubtask={handleCreateSubtask}
+            onUpdateStatus={handleUpdateStatus}
+          />
         )}
-      </div>
-      
-      {/* Modals */}
-      <Modal
+<Modal
         isOpen={showTaskModal}
         onClose={() => {
           setShowTaskModal(false)
           setSelectedTask(null)
+          setParentTaskId(null)
         }}
-        title={selectedTask ? "Edit Task" : "Create New Task"}
+        title={parentTaskId ? "Create New Subtask" : selectedTask ? "Edit Task" : "Create New Task"}
         size="lg"
       >
         <TaskForm
           task={selectedTask}
+          parentId={parentTaskId}
           onSubmit={handleTaskSubmit}
           onCancel={() => {
             setShowTaskModal(false)
             setSelectedTask(null)
+            setParentTaskId(null)
           }}
         />
+      </div>
+      
+      {/* Modals */}
       </Modal>
       
       <ConfirmDialog

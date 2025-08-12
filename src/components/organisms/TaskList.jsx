@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import Badge from "@/components/atoms/Badge"
-import Button from "@/components/atoms/Button"
-import Select from "@/components/atoms/Select"
-import Input from "@/components/atoms/Input"
-import ApperIcon from "@/components/ApperIcon"
-import { formatDateShort, formatDate, getUrgencyLevel } from "@/utils/dateUtils"
-
-const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, onUpdateStatus, projectId }) => {
+import React, { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import ApperIcon from "@/components/ApperIcon";
+import Select from "@/components/atoms/Select";
+import Button from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Input from "@/components/atoms/Input";
+import Tasks from "@/components/pages/Tasks";
+import { formatDate, formatDateShort, getUrgencyLevel } from "@/utils/dateUtils";
+const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, onUpdateStatus, onAddSubtask, projectId }) => {
   const [expandedTasks, setExpandedTasks] = useState(new Set())
   const [statusFilter, setStatusFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
@@ -48,8 +48,11 @@ const getPriorityColor = (priority) => {
   }
 
   // Sort and filter tasks
-  const sortedAndFilteredTasks = useMemo(() => {
-    let filteredTasks = tasks.filter(task => {
+const taskHierarchy = useMemo(() => {
+    // Only show main tasks initially, subtasks will be shown nested
+    const mainTasks = tasks.filter(task => !task.parentId && (!projectId || task.projectId === projectId))
+    
+    let filteredTasks = mainTasks.filter(task => {
       const matchesStatus = !statusFilter || task.status === statusFilter
       const matchesPriority = !priorityFilter || task.priority === priorityFilter
       const matchesSearch = !searchTerm || 
@@ -73,7 +76,16 @@ const getPriorityColor = (priority) => {
       // Finally by due date (earliest first)
       return new Date(a.dueDate) - new Date(b.dueDate)
     })
-  }, [tasks, statusFilter, priorityFilter, searchTerm])
+  }, [tasks, statusFilter, priorityFilter, searchTerm, projectId])
+
+  const getSubtasks = (parentId) => {
+    return tasks.filter(task => task.parentId === parentId).sort((a, b) => {
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1
+      }
+      return new Date(a.dueDate) - new Date(b.dueDate)
+    })
+  }
 
   const statusOptions = [
     { value: '', label: 'All Status' },
@@ -101,9 +113,9 @@ const getPriorityColor = (priority) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-slate-900 font-display">Tasks</h3>
-        <Button size="sm" onClick={() => onAdd(projectId)}>
+<Button size="sm" onClick={() => onAdd(projectId)}>
           <ApperIcon name="Plus" className="w-4 h-4 mr-1" />
-          Add Task
+          Add Main Task
         </Button>
       </div>
       
@@ -146,190 +158,224 @@ const getPriorityColor = (priority) => {
 
           {/* Tasks List */}
           <AnimatePresence>
-            {sortedAndFilteredTasks.map((task, index) => {
+{taskHierarchy.map((task, index) => {
               const urgency = getUrgencyIcon(task.dueDate)
               const isExpanded = expandedTasks.has(task.Id)
+              const subtasks = getSubtasks(task.Id)
+              const completedSubtasks = subtasks.filter(sub => sub.completed).length
               
-              return (
-                <motion.div
-                  key={task.Id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`bg-white border border-slate-200 rounded-lg hover:shadow-sm transition-all duration-200 ${
-                    task.completed ? "opacity-75" : ""
-                  } ${isExpanded ? 'shadow-sm' : ''}`}
-                >
-                  {/* Main Task Content */}
-                  <div className="p-4">
-                    <div className="flex items-start space-x-3">
-                      <button
-                        onClick={() => onToggleComplete(task)}
-                        className="mt-1 flex-shrink-0"
-                      >
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                          task.completed 
-                            ? "bg-primary-500 border-primary-500" 
-                            : "border-slate-300 hover:border-primary-400"
-                        }`}>
-                          {task.completed && (
-                            <ApperIcon name="Check" className="w-3 h-3 text-white" />
-                          )}
-                        </div>
-                      </button>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 pr-4">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className={`text-sm font-medium ${
-                                task.completed ? "line-through text-slate-500" : "text-slate-900"
-                              }`}>
-                                {task.title}
-                              </h4>
-                              <button
-                                onClick={() => toggleTaskExpanded(task.Id)}
-                                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                              >
-                                <ApperIcon 
-                                  name={isExpanded ? "ChevronUp" : "ChevronDown"} 
-                                  className="w-4 h-4" 
-                                />
-                              </button>
+              const renderTask = (taskItem, depth = 0) => {
+                const taskUrgency = getUrgencyIcon(taskItem.dueDate)
+                const taskExpanded = expandedTasks.has(taskItem.Id)
+                
+                return (
+                  <motion.div
+                    key={taskItem.Id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`bg-white border border-slate-200 rounded-lg hover:shadow-sm transition-all duration-200 ${
+                      taskItem.completed ? "opacity-75" : ""
+                    } ${taskExpanded ? 'shadow-sm' : ''} ${depth > 0 ? 'ml-6 border-l-4 border-l-primary-200' : ''}`}
+                    style={{ marginLeft: depth * 16 }}
+                  >
+                    {/* Task Content */}
+                    <div className="p-4">
+                      <div className="flex items-start space-x-3">
+                        <button
+                          onClick={() => onToggleComplete(taskItem)}
+                          className="mt-1 flex-shrink-0"
+                        >
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            taskItem.completed 
+                              ? "bg-primary-500 border-primary-500" 
+                              : "border-slate-300 hover:border-primary-400"
+                          }`}>
+                            {taskItem.completed && (
+                              <ApperIcon name="Check" className="w-3 h-3 text-white" />
+                            )}
+                          </div>
+                        </button>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 pr-4">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className={`text-sm font-medium ${
+                                  taskItem.completed ? "line-through text-slate-500" : "text-slate-900"
+                                }`}>
+                                  {taskItem.title}
+                                </h4>
+                                
+                                {/* Subtask counter for main tasks */}
+                                {depth === 0 && subtasks.length > 0 && (
+                                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                    {completedSubtasks}/{subtasks.length}
+                                  </span>
+                                )}
+                                
+                                {/* Add subtask button */}
+                                {depth === 0 && onAddSubtask && (
+                                  <button
+                                    onClick={() => onAddSubtask(taskItem.Id)}
+                                    className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
+                                    title="Add subtask"
+                                  >
+                                    <ApperIcon name="Plus" className="w-3 h-3" />
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={() => toggleTaskExpanded(taskItem.Id)}
+                                  className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                  <ApperIcon 
+                                    name={taskExpanded ? "ChevronUp" : "ChevronDown"} 
+                                    className="w-4 h-4" 
+                                  />
+                                </button>
+                              </div>
+                              
+                              <p className={`text-sm ${
+                                taskItem.completed ? "line-through text-slate-400" : "text-slate-600"
+                              } ${!taskExpanded ? 'line-clamp-2' : ''}`}>
+                                {taskItem.description}
+                              </p>
+                              
+                              {/* Status and Priority Badges */}
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge 
+                                  variant={getStatusColor(taskItem.status)} 
+                                  className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => {
+                                    const statusCycle = ['To Do', 'In Progress', 'Review', 'Done']
+                                    const currentIndex = statusCycle.indexOf(taskItem.status)
+                                    const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length]
+                                    handleStatusClick(taskItem, nextStatus)
+                                  }}
+                                >
+                                  {taskItem.status}
+                                </Badge>
+                                <Badge variant={getPriorityColor(taskItem.priority)} className="text-xs">
+                                  {taskItem.priority}
+                                </Badge>
+                              </div>
                             </div>
                             
-                            <p className={`text-sm ${
-                              task.completed ? "line-through text-slate-400" : "text-slate-600"
-                            } ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                              {task.description}
-                            </p>
-                            
-                            {/* Status and Priority Badges */}
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge 
-                                variant={getStatusColor(task.status)} 
-                                className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => {
-                                  const statusCycle = ['To Do', 'In Progress', 'Review', 'Done']
-                                  const currentIndex = statusCycle.indexOf(task.status)
-                                  const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length]
-                                  handleStatusClick(task, nextStatus)
-                                }}
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => onEdit(taskItem)}
+                                className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
                               >
-                                {task.status}
-                              </Badge>
-                              <Badge variant={getPriorityColor(task.priority)} className="text-xs">
-                                {task.priority}
-                              </Badge>
+                                <ApperIcon name="Edit" className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => onDelete(taskItem)}
+                                className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                              >
+                                <ApperIcon name="Trash2" className="w-4 h-4" />
+                              </button>
                             </div>
                           </div>
                           
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => onEdit(task)}
-                              className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
-                            >
-                              <ApperIcon name="Edit" className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => onDelete(task)}
-                              className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                            >
-                              <ApperIcon name="Trash2" className="w-4 h-4" />
-                            </button>
+                          <div className="flex items-center mt-2 text-xs text-slate-500">
+                            <ApperIcon name={taskUrgency.icon} className={`w-3 h-3 mr-1 ${taskUrgency.color}`} />
+                            <span className={taskUrgency.color}>
+                              Due {formatDateShort(new Date(taskItem.dueDate))}
+                            </span>
                           </div>
-                        </div>
-                        
-                        <div className="flex items-center mt-2 text-xs text-slate-500">
-                          <ApperIcon name={urgency.icon} className={`w-3 h-3 mr-1 ${urgency.color}`} />
-                          <span className={urgency.color}>
-                            Due {formatDateShort(new Date(task.dueDate))}
-                          </span>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Expanded Details */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="border-t border-slate-200 bg-slate-50"
-                      >
-                        <div className="p-4 space-y-3">
-                          {/* Task Details */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="font-medium text-slate-700">Created:</span>
-                              <span className="ml-2 text-slate-600">
-                                {formatDate(new Date(task.createdAt))}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-medium text-slate-700">Last Updated:</span>
-                              <span className="ml-2 text-slate-600">
-                                {formatDate(new Date(task.lastUpdated))}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Status History */}
-                          {task.statusHistory && task.statusHistory.length > 0 && (
-                            <div>
-                              <h5 className="font-medium text-slate-700 mb-2">Status History</h5>
-                              <div className="space-y-1">
-                                {task.statusHistory.slice(-3).reverse().map((entry, idx) => (
-                                  <div key={idx} className="flex items-center gap-2 text-xs text-slate-600">
-                                    <Badge variant={getStatusColor(entry.status)} className="text-xs">
-                                      {entry.status}
-                                    </Badge>
-                                    <span>{formatDate(new Date(entry.timestamp))}</span>
-                                  </div>
-                                ))}
-                                {task.statusHistory.length > 3 && (
-                                  <div className="text-xs text-slate-500">
-                                    + {task.statusHistory.length - 3} more status changes
-                                  </div>
-                                )}
+                    {/* Expanded Details */}
+                    <AnimatePresence>
+                      {taskExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="border-t border-slate-200 bg-slate-50"
+                        >
+                          <div className="p-4 space-y-3">
+                            {/* Task Details */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-slate-700">Created:</span>
+                                <span className="ml-2 text-slate-600">
+                                  {formatDate(new Date(taskItem.createdAt))}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-slate-700">Last Updated:</span>
+                                <span className="ml-2 text-slate-600">
+                                  {formatDate(new Date(taskItem.lastUpdated))}
+                                </span>
                               </div>
                             </div>
-                          )}
 
-                          {/* Quick Status Updates */}
-                          <div>
-                            <span className="font-medium text-slate-700 text-sm">Quick Status Update:</span>
-                            <div className="flex gap-2 mt-2">
-                              {['To Do', 'In Progress', 'Review', 'Done'].map((status) => (
-                                <button
-                                  key={status}
-                                  onClick={() => handleStatusClick(task, status)}
-                                  disabled={task.status === status}
-                                  className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                                    task.status === status
-                                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
-                                  }`}
-                                >
-                                  {status}
-                                </button>
-                              ))}
+                            {/* Status History */}
+                            {taskItem.statusHistory && taskItem.statusHistory.length > 0 && (
+                              <div>
+                                <h5 className="font-medium text-slate-700 mb-2">Status History</h5>
+                                <div className="space-y-1">
+                                  {taskItem.statusHistory.slice(-3).reverse().map((entry, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-xs text-slate-600">
+                                      <Badge variant={getStatusColor(entry.status)} className="text-xs">
+                                        {entry.status}
+                                      </Badge>
+                                      <span>{formatDate(new Date(entry.timestamp))}</span>
+                                    </div>
+                                  ))}
+                                  {taskItem.statusHistory.length > 3 && (
+                                    <div className="text-xs text-slate-500">
+                                      + {taskItem.statusHistory.length - 3} more status changes
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Quick Status Updates */}
+                            <div>
+                              <span className="font-medium text-slate-700 text-sm">Quick Status Update:</span>
+                              <div className="flex gap-2 mt-2">
+                                {['To Do', 'In Progress', 'Review', 'Done'].map((status) => (
+                                  <button
+                                    key={status}
+                                    onClick={() => handleStatusClick(taskItem, status)}
+                                    disabled={taskItem.status === status}
+                                    className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                                      taskItem.status === status
+                                        ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                                        : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {status}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )
+              }
+              
+              return (
+                <div key={task.Id} className="space-y-2">
+                  {renderTask(task, 0)}
+                  {subtasks.map(subtask => renderTask(subtask, 1))}
+                </div>
               )
             })}
-          </AnimatePresence>
+</AnimatePresence>
 
-          {sortedAndFilteredTasks.length === 0 && (
+          {taskHierarchy.length === 0 && (
             <div className="text-center py-12">
               <ApperIcon name="Search" className="w-12 h-12 text-slate-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-slate-900 mb-2">No tasks found</h3>

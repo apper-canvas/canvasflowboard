@@ -20,6 +20,39 @@
     "createdAt": "2024-01-16T00:00:00.000Z"
   },
   {
+    "Id": 11,
+    "projectId": 1,
+    "parentId": 2,
+    "title": "Design mobile menu layout",
+    "description": "Create mobile-first navigation design",
+    "priority": "High",
+    "dueDate": "2024-01-26T00:00:00.000Z",
+    "completed": true,
+    "createdAt": "2024-01-16T08:00:00.000Z"
+  },
+  {
+    "Id": 12,
+    "projectId": 1,
+    "parentId": 2,
+    "title": "Code responsive breakpoints",
+    "description": "Implement CSS media queries for all breakpoints",
+    "priority": "High",
+    "dueDate": "2024-01-27T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-16T10:00:00.000Z"
+  },
+  {
+    "Id": 13,
+    "projectId": 1,
+    "parentId": 2,
+    "title": "Test cross-browser compatibility",
+    "description": "Ensure navigation works across all major browsers",
+    "priority": "Medium",
+    "dueDate": "2024-01-27T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-16T12:00:00.000Z"
+  },
+  {
     "Id": 3,
     "projectId": 1,
     "title": "Optimize page loading speed",
@@ -28,6 +61,28 @@
     "dueDate": "2024-02-01T00:00:00.000Z",
     "completed": false,
     "createdAt": "2024-01-17T00:00:00.000Z"
+  },
+  {
+    "Id": 14,
+    "projectId": 1,
+    "parentId": 3,
+    "title": "Implement image lazy loading",
+    "description": "Add lazy loading for all images below the fold",
+    "priority": "Medium",
+    "dueDate": "2024-01-30T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-17T08:00:00.000Z"
+  },
+  {
+    "Id": 15,
+    "projectId": 1,
+    "parentId": 3,
+    "title": "Optimize image formats",
+    "description": "Convert images to WebP and AVIF formats",
+    "priority": "Low",
+    "dueDate": "2024-02-01T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-17T10:00:00.000Z"
   },
   {
     "Id": 4,
@@ -58,6 +113,28 @@
     "dueDate": "2024-01-26T00:00:00.000Z",
     "completed": false,
     "createdAt": "2024-01-20T00:00:00.000Z"
+  },
+  {
+    "Id": 16,
+    "projectId": 3,
+    "parentId": 6,
+    "title": "Write Facebook posts",
+    "description": "Create engaging Facebook posts for the campaign",
+    "priority": "High",
+    "dueDate": "2024-01-25T00:00:00.000Z",
+    "completed": true,
+    "createdAt": "2024-01-20T08:00:00.000Z"
+  },
+  {
+    "Id": 17,
+    "projectId": 3,
+    "parentId": 6,
+    "title": "Design Instagram graphics",
+    "description": "Create visual content for Instagram posts",
+    "priority": "High",
+    "dueDate": "2024-01-26T00:00:00.000Z",
+    "completed": false,
+    "createdAt": "2024-01-20T10:00:00.000Z"
   },
   {
     "Id": 7,
