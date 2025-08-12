@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import Header from "@/components/organisms/Header"
@@ -21,7 +21,7 @@ const ProjectDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   
-  const [project, setProject] = useState(null)
+const [project, setProject] = useState(null)
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -33,6 +33,35 @@ const ProjectDetail = () => {
   const [showTaskDeleteDialog, setShowTaskDeleteDialog] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [taskToDelete, setTaskToDelete] = useState(null)
+
+  // Calculate comprehensive task statistics
+  const taskStats = useMemo(() => {
+    const totalTasks = tasks.length
+    const completedTasks = tasks.filter(t => t.completed).length
+    const todoTasks = tasks.filter(t => t.status === 'To Do').length
+    const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length
+    const reviewTasks = tasks.filter(t => t.status === 'Review').length
+    const doneTasks = tasks.filter(t => t.status === 'Done').length
+    
+    const highPriorityTasks = tasks.filter(t => t.priority === 'High' && !t.completed).length
+    const overdueTasks = tasks.filter(t => 
+      new Date(t.dueDate) < new Date() && !t.completed
+    ).length
+    
+    const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+    
+    return {
+      total: totalTasks,
+      completed: completedTasks,
+      todo: todoTasks,
+      inProgress: inProgressTasks,
+      review: reviewTasks,
+      done: doneTasks,
+      highPriority: highPriorityTasks,
+      overdue: overdueTasks,
+      completionPercentage
+    }
+  }, [tasks])
   
   const loadProjectData = async () => {
     try {
@@ -102,7 +131,7 @@ const ProjectDetail = () => {
     setShowTaskDeleteDialog(true)
   }
   
-  const handleTaskSubmit = async (taskData) => {
+const handleTaskSubmit = async (taskData) => {
     try {
       if (selectedTask) {
         const updatedTask = await taskService.update(selectedTask.Id, taskData)
@@ -125,6 +154,19 @@ const ProjectDetail = () => {
       console.error("Task save error:", err)
     }
   }
+
+  const handleUpdateTaskStatus = async (task, newStatus) => {
+    try {
+      const updatedTask = await taskService.updateStatus(task.Id, newStatus)
+      setTasks(prev => 
+        prev.map(t => t.Id === task.Id ? updatedTask : t)
+      )
+      toast.success(`Task moved to ${newStatus}!`)
+    } catch (err) {
+      toast.error("Failed to update task status. Please try again.")
+      console.error("Task status update error:", err)
+    }
+  }
   
   const handleConfirmDeleteTask = async () => {
     try {
@@ -137,7 +179,7 @@ const ProjectDetail = () => {
     }
   }
   
-  const handleToggleTaskComplete = async (task) => {
+const handleToggleTaskComplete = async (task) => {
     try {
       const updatedTask = await taskService.toggleComplete(task.Id)
       setTasks(prev => 
@@ -199,9 +241,6 @@ const ProjectDetail = () => {
   const urgencyLevel = getUrgencyLevel(project.deadline)
   const urgencyColorClass = getUrgencyColor(urgencyLevel)
   
-  const completedTasks = tasks.filter(t => t.completed).length
-  const totalTasks = tasks.length
-  
   return (
     <div className="flex-1 flex flex-col">
       <Header 
@@ -243,8 +282,8 @@ const ProjectDetail = () => {
                   </div>
                   
                   <div>
-                    <h4 className="text-sm font-medium text-slate-700 mb-2">Progress</h4>
-                    <ProgressBar value={project.progress} showValue />
+<h4 className="text-sm font-medium text-slate-700 mb-2">Overall Progress</h4>
+                    <ProgressBar value={taskStats.completionPercentage} showValue />
                   </div>
                   
                   <div className="flex items-center justify-between py-2 border-t border-slate-200">
@@ -257,14 +296,73 @@ const ProjectDetail = () => {
                     </span>
                   </div>
                   
-                  <div className="flex items-center justify-between py-2 border-t border-slate-200">
-                    <div className="flex items-center text-sm text-slate-600">
-                      <ApperIcon name="CheckSquare" className="w-4 h-4 mr-2" />
-                      <span>Tasks</span>
+{/* Task Statistics */}
+                  <div className="space-y-3 pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-sm text-slate-600">
+                        <ApperIcon name="CheckSquare" className="w-4 h-4 mr-2" />
+                        <span>Task Completion</span>
+                      </div>
+                      <span className="text-sm font-medium text-slate-900">
+                        {taskStats.completed}/{taskStats.total} ({taskStats.completionPercentage}%)
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-slate-900">
-                      {completedTasks}/{totalTasks} completed
-                    </span>
+
+                    {/* Status Breakdown */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-slate-400 mr-2"></div>
+                          <span className="text-slate-600">To Do</span>
+                        </div>
+                        <span className="font-medium text-slate-900">{taskStats.todo}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-yellow-400 mr-2"></div>
+                          <span className="text-slate-600">In Progress</span>
+                        </div>
+                        <span className="font-medium text-slate-900">{taskStats.inProgress}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-blue-400 mr-2"></div>
+                          <span className="text-slate-600">Review</span>
+                        </div>
+                        <span className="font-medium text-slate-900">{taskStats.review}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-green-400 mr-2"></div>
+                          <span className="text-slate-600">Done</span>
+                        </div>
+                        <span className="font-medium text-slate-900">{taskStats.done}</span>
+                      </div>
+                    </div>
+
+                    {/* Priority & Overdue Alerts */}
+                    {(taskStats.highPriority > 0 || taskStats.overdue > 0) && (
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        {taskStats.highPriority > 0 && (
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center text-red-600">
+                              <ApperIcon name="AlertCircle" className="w-3 h-3 mr-1" />
+                              <span>High Priority</span>
+                            </div>
+                            <span className="font-medium text-red-900">{taskStats.highPriority}</span>
+                          </div>
+                        )}
+                        {taskStats.overdue > 0 && (
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center text-red-600">
+                              <ApperIcon name="Clock" className="w-3 h-3 mr-1" />
+                              <span>Overdue</span>
+                            </div>
+                            <span className="font-medium text-red-900">{taskStats.overdue}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex items-center justify-between py-2 border-t border-slate-200">
@@ -282,11 +380,12 @@ const ProjectDetail = () => {
           </div>
           
           {/* Tasks */}
-          <div className="lg:col-span-2">
+<div className="lg:col-span-2">
             <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
               <TaskList
                 tasks={tasks}
                 onToggleComplete={handleToggleTaskComplete}
+                onUpdateStatus={handleUpdateTaskStatus}
                 onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
                 onAdd={handleAddTask}
@@ -311,7 +410,7 @@ const ProjectDetail = () => {
         />
       </Modal>
       
-      <Modal
+<Modal
         isOpen={showTaskModal}
         onClose={() => {
           setShowTaskModal(false)

@@ -1,12 +1,18 @@
-import React from "react"
-import { motion } from "framer-motion"
+import React, { useState, useMemo } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import Badge from "@/components/atoms/Badge"
 import Button from "@/components/atoms/Button"
+import Select from "@/components/atoms/Select"
+import Input from "@/components/atoms/Input"
 import ApperIcon from "@/components/ApperIcon"
-import { formatDateShort, getUrgencyLevel } from "@/utils/dateUtils"
+import { formatDateShort, formatDate, getUrgencyLevel } from "@/utils/dateUtils"
 
-const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, projectId }) => {
-  const getPriorityColor = (priority) => {
+const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, onUpdateStatus, projectId }) => {
+  const [expandedTasks, setExpandedTasks] = useState(new Set())
+  const [statusFilter, setStatusFilter] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+const getPriorityColor = (priority) => {
     switch (priority) {
       case "High": return "error"
       case "Medium": return "warning"
@@ -14,6 +20,75 @@ const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, projectId 
       default: return "default"
     }
   }
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "To Do": return "default"
+      case "In Progress": return "warning"
+      case "Review": return "info"
+      case "Done": return "success"
+      default: return "default"
+    }
+  }
+
+  const toggleTaskExpanded = (taskId) => {
+    const newExpanded = new Set(expandedTasks)
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId)
+    } else {
+      newExpanded.add(taskId)
+    }
+    setExpandedTasks(newExpanded)
+  }
+
+  const handleStatusClick = async (task, newStatus) => {
+    if (onUpdateStatus) {
+      await onUpdateStatus(task, newStatus)
+    }
+  }
+
+  // Sort and filter tasks
+  const sortedAndFilteredTasks = useMemo(() => {
+    let filteredTasks = tasks.filter(task => {
+      const matchesStatus = !statusFilter || task.status === statusFilter
+      const matchesPriority = !priorityFilter || task.priority === priorityFilter
+      const matchesSearch = !searchTerm || 
+        task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.description.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      return matchesStatus && matchesPriority && matchesSearch
+    })
+
+    return filteredTasks.sort((a, b) => {
+      // First sort by completion status (incomplete first)
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1
+      }
+      
+      // Then by priority (High -> Medium -> Low)
+      const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 }
+      const priorityDiff = (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3)
+      if (priorityDiff !== 0) return priorityDiff
+      
+      // Finally by due date (earliest first)
+      return new Date(a.dueDate) - new Date(b.dueDate)
+    })
+  }, [tasks, statusFilter, priorityFilter, searchTerm])
+
+  const statusOptions = [
+    { value: '', label: 'All Status' },
+    { value: 'To Do', label: 'To Do' },
+    { value: 'In Progress', label: 'In Progress' },
+    { value: 'Review', label: 'Review' },
+    { value: 'Done', label: 'Done' }
+  ]
+
+  const priorityOptions = [
+    { value: '', label: 'All Priority' },
+    { value: 'High', label: 'High' },
+    { value: 'Medium', label: 'Medium' },
+    { value: 'Low', label: 'Low' }
+  ]
   
   const getUrgencyIcon = (dueDate) => {
     const level = getUrgencyLevel(dueDate)
@@ -40,80 +115,235 @@ const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, projectId 
         </div>
       ) : (
         <div className="space-y-2">
-          {tasks.map((task, index) => {
-            const urgency = getUrgencyIcon(task.dueDate)
-            
-            return (
-              <motion.div
-                key={task.Id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow ${
-                  task.completed ? "opacity-75" : ""
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <button
-                    onClick={() => onToggleComplete(task)}
-                    className="mt-1"
-                  >
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                      task.completed 
-                        ? "bg-primary-500 border-primary-500" 
-                        : "border-slate-300 hover:border-primary-400"
-                    }`}>
-                      {task.completed && (
-                        <ApperIcon name="Check" className="w-3 h-3 text-white" />
-                      )}
-                    </div>
-                  </button>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className={`text-sm font-medium ${
-                          task.completed ? "line-through text-slate-500" : "text-slate-900"
+{/* Search and Filter Controls */}
+          <div className="mb-6 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                  icon="Search"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Select
+                  value={statusFilter}
+                  onValueChange={setStatusFilter}
+                  options={statusOptions}
+                  className="min-w-32"
+                />
+                <Select
+                  value={priorityFilter}
+                  onValueChange={setPriorityFilter}
+                  options={priorityOptions}
+                  className="min-w-32"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Tasks List */}
+          <AnimatePresence>
+            {sortedAndFilteredTasks.map((task, index) => {
+              const urgency = getUrgencyIcon(task.dueDate)
+              const isExpanded = expandedTasks.has(task.Id)
+              
+              return (
+                <motion.div
+                  key={task.Id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`bg-white border border-slate-200 rounded-lg hover:shadow-sm transition-all duration-200 ${
+                    task.completed ? "opacity-75" : ""
+                  } ${isExpanded ? 'shadow-sm' : ''}`}
+                >
+                  {/* Main Task Content */}
+                  <div className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <button
+                        onClick={() => onToggleComplete(task)}
+                        className="mt-1 flex-shrink-0"
+                      >
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          task.completed 
+                            ? "bg-primary-500 border-primary-500" 
+                            : "border-slate-300 hover:border-primary-400"
                         }`}>
-                          {task.title}
-                        </h4>
-                        <p className={`text-sm mt-1 ${
-                          task.completed ? "line-through text-slate-400" : "text-slate-600"
-                        }`}>
-                          {task.description}
-                        </p>
-                      </div>
+                          {task.completed && (
+                            <ApperIcon name="Check" className="w-3 h-3 text-white" />
+                          )}
+                        </div>
+                      </button>
                       
-                      <div className="flex items-center space-x-2 ml-4">
-                        <Badge variant={getPriorityColor(task.priority)} className="text-xs">
-                          {task.priority}
-                        </Badge>
-                        <button
-                          onClick={() => onEdit(task)}
-                          className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
-                        >
-                          <ApperIcon name="Edit" className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(task)}
-                          className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                        >
-                          <ApperIcon name="Trash2" className="w-4 h-4" />
-                        </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 pr-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className={`text-sm font-medium ${
+                                task.completed ? "line-through text-slate-500" : "text-slate-900"
+                              }`}>
+                                {task.title}
+                              </h4>
+                              <button
+                                onClick={() => toggleTaskExpanded(task.Id)}
+                                className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                              >
+                                <ApperIcon 
+                                  name={isExpanded ? "ChevronUp" : "ChevronDown"} 
+                                  className="w-4 h-4" 
+                                />
+                              </button>
+                            </div>
+                            
+                            <p className={`text-sm ${
+                              task.completed ? "line-through text-slate-400" : "text-slate-600"
+                            } ${!isExpanded ? 'line-clamp-2' : ''}`}>
+                              {task.description}
+                            </p>
+                            
+                            {/* Status and Priority Badges */}
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge 
+                                variant={getStatusColor(task.status)} 
+                                className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => {
+                                  const statusCycle = ['To Do', 'In Progress', 'Review', 'Done']
+                                  const currentIndex = statusCycle.indexOf(task.status)
+                                  const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length]
+                                  handleStatusClick(task, nextStatus)
+                                }}
+                              >
+                                {task.status}
+                              </Badge>
+                              <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                                {task.priority}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => onEdit(task)}
+                              className="p-1 text-slate-400 hover:text-primary-600 transition-colors"
+                            >
+                              <ApperIcon name="Edit" className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => onDelete(task)}
+                              className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                            >
+                              <ApperIcon name="Trash2" className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center mt-2 text-xs text-slate-500">
+                          <ApperIcon name={urgency.icon} className={`w-3 h-3 mr-1 ${urgency.color}`} />
+                          <span className={urgency.color}>
+                            Due {formatDateShort(new Date(task.dueDate))}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center mt-2 text-xs text-slate-500">
-                      <ApperIcon name={urgency.icon} className={`w-3 h-3 mr-1 ${urgency.color}`} />
-                      <span className={urgency.color}>
-                        {formatDateShort(new Date(task.dueDate))}
-                      </span>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            )
-          })}
+
+                  {/* Expanded Details */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="border-t border-slate-200 bg-slate-50"
+                      >
+                        <div className="p-4 space-y-3">
+                          {/* Task Details */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium text-slate-700">Created:</span>
+                              <span className="ml-2 text-slate-600">
+                                {formatDate(new Date(task.createdAt))}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-slate-700">Last Updated:</span>
+                              <span className="ml-2 text-slate-600">
+                                {formatDate(new Date(task.lastUpdated))}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status History */}
+                          {task.statusHistory && task.statusHistory.length > 0 && (
+                            <div>
+                              <h5 className="font-medium text-slate-700 mb-2">Status History</h5>
+                              <div className="space-y-1">
+                                {task.statusHistory.slice(-3).reverse().map((entry, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 text-xs text-slate-600">
+                                    <Badge variant={getStatusColor(entry.status)} className="text-xs">
+                                      {entry.status}
+                                    </Badge>
+                                    <span>{formatDate(new Date(entry.timestamp))}</span>
+                                  </div>
+                                ))}
+                                {task.statusHistory.length > 3 && (
+                                  <div className="text-xs text-slate-500">
+                                    + {task.statusHistory.length - 3} more status changes
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Quick Status Updates */}
+                          <div>
+                            <span className="font-medium text-slate-700 text-sm">Quick Status Update:</span>
+                            <div className="flex gap-2 mt-2">
+                              {['To Do', 'In Progress', 'Review', 'Done'].map((status) => (
+                                <button
+                                  key={status}
+                                  onClick={() => handleStatusClick(task, status)}
+                                  disabled={task.status === status}
+                                  className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                                    task.status === status
+                                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+
+          {sortedAndFilteredTasks.length === 0 && (
+            <div className="text-center py-12">
+              <ApperIcon name="Search" className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-slate-900 mb-2">No tasks found</h3>
+              <p className="text-slate-500 mb-4">
+                {searchTerm || statusFilter || priorityFilter
+                  ? "Try adjusting your search or filters"
+                  : "Get started by creating your first task"}
+              </p>
+              <Button onClick={onAdd} variant="primary">
+                <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
+                Add Task
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

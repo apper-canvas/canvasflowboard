@@ -1,6 +1,14 @@
 import tasksData from "@/services/mockData/tasks.json"
 
-let tasks = [...tasksData]
+let tasks = [...tasksData.map(task => ({
+  ...task,
+  status: task.completed ? 'Done' : 'To Do',
+  statusHistory: [{
+    status: task.completed ? 'Done' : 'To Do',
+    timestamp: task.createdAt || new Date().toISOString()
+  }],
+  lastUpdated: task.createdAt || new Date().toISOString()
+}))]
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -24,30 +32,70 @@ export const taskService = {
     return tasks.filter(t => t.projectId === parseInt(projectId))
   },
 
-  async create(taskData) {
+async create(taskData) {
     await delay(350)
+    const now = new Date().toISOString()
+    const status = taskData.status || 'To Do'
     const newTask = {
       ...taskData,
       Id: Math.max(...tasks.map(t => t.Id)) + 1,
       projectId: parseInt(taskData.projectId),
-      createdAt: new Date().toISOString()
+      status,
+      completed: status === 'Done',
+      createdAt: now,
+      lastUpdated: now,
+      statusHistory: [{
+        status,
+        timestamp: now
+      }]
     }
     tasks.push(newTask)
     return { ...newTask }
   },
 
-  async update(id, taskData) {
+async update(id, taskData) {
     await delay(300)
     const index = tasks.findIndex(t => t.Id === parseInt(id))
     if (index === -1) {
       throw new Error("Task not found")
     }
     
+    const now = new Date().toISOString()
+    const oldTask = tasks[index]
+    const newStatus = taskData.status || oldTask.status
+    
     tasks[index] = {
-      ...tasks[index],
+      ...oldTask,
       ...taskData,
       Id: parseInt(id),
-      projectId: parseInt(taskData.projectId)
+      projectId: parseInt(taskData.projectId),
+      status: newStatus,
+      completed: newStatus === 'Done',
+      lastUpdated: now,
+      statusHistory: newStatus !== oldTask.status 
+        ? [...(oldTask.statusHistory || []), { status: newStatus, timestamp: now }]
+        : oldTask.statusHistory
+    }
+    
+    return { ...tasks[index] }
+  },
+
+  async updateStatus(id, status) {
+    await delay(200)
+    const index = tasks.findIndex(t => t.Id === parseInt(id))
+    if (index === -1) {
+      throw new Error("Task not found")
+    }
+    
+    const now = new Date().toISOString()
+    const oldTask = tasks[index]
+    
+    tasks[index] = {
+      ...oldTask,
+      status,
+      completed: status === 'Done',
+      lastUpdated: now,
+      statusHistory: [...(oldTask.statusHistory || []), { status, timestamp: now }]
     }
     
     return { ...tasks[index] }
@@ -64,14 +112,25 @@ export const taskService = {
     return true
   },
 
-  async toggleComplete(id) {
+async toggleComplete(id) {
     await delay(200)
     const index = tasks.findIndex(t => t.Id === parseInt(id))
     if (index === -1) {
       throw new Error("Task not found")
     }
     
-    tasks[index].completed = !tasks[index].completed
+    const now = new Date().toISOString()
+    const oldTask = tasks[index]
+    const newStatus = oldTask.completed ? 'To Do' : 'Done'
+    
+    tasks[index] = {
+      ...oldTask,
+      completed: !oldTask.completed,
+      status: newStatus,
+      lastUpdated: now,
+      statusHistory: [...(oldTask.statusHistory || []), { status: newStatus, timestamp: now }]
+    }
+    
     return { ...tasks[index] }
   }
 }
