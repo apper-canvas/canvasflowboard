@@ -6,12 +6,12 @@ let timeEntries = [
     projectId: 1,
     duration: 3600, // 1 hour in seconds
     description: "Working on wireframes and mockups",
-    date: "2024-01-25",
+    date: new Date().toISOString().split('T')[0], // Today's date
     startTime: null,
     endTime: null,
     isManual: true,
     billable: true,
-    createdAt: "2024-01-25T10:00:00.000Z"
+    createdAt: new Date().toISOString()
   },
   {
     Id: 2,
@@ -19,12 +19,12 @@ let timeEntries = [
     projectId: 2,
     duration: 7200, // 2 hours in seconds
     description: "Comparing React Native vs Flutter",
-    date: "2024-01-24",
+    date: new Date().toISOString().split('T')[0], // Today's date
     startTime: null,
     endTime: null,
     isManual: true,
     billable: true,
-    createdAt: "2024-01-24T14:00:00.000Z"
+    createdAt: new Date().toISOString()
   },
   {
     Id: 3,
@@ -32,12 +32,25 @@ let timeEntries = [
     projectId: 3,
     duration: 5400, // 1.5 hours in seconds
     description: "Designing posts for Instagram and Facebook",
-    date: "2024-01-23",
+    date: new Date().toISOString().split('T')[0], // Today's date
     startTime: null,
     endTime: null,
     isManual: true,
     billable: false,
-    createdAt: "2024-01-23T16:00:00.000Z"
+    createdAt: new Date().toISOString()
+  },
+  {
+    Id: 4,
+    taskId: 2,
+    projectId: 1,
+    duration: 2700, // 45 minutes in seconds
+    description: "User research and competitor analysis",
+    date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday's date
+    startTime: null,
+    endTime: null,
+    isManual: true,
+    billable: true,
+    createdAt: new Date(Date.now() - 86400000).toISOString()
   }
 ]
 

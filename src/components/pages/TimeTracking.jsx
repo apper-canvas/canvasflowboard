@@ -114,9 +114,15 @@ const enrichTimeEntries = (entries, tasksData, projectsData) => {
       .reduce((total, entry) => total + entry.duration, 0)
   }
   
-  const filteredTasks = tasks.filter(task => 
+const filteredTasks = tasks.filter(task => 
     task.projectId === parseInt(formData.projectId)
   )
+  
+  // Filter time entries to show today's entries by default
+  const todayEntries = timeEntries.filter(entry => {
+    const today = new Date().toISOString().split('T')[0]
+    return entry.date === today
+  })
   
   const handleOpenModal = (entry = null) => {
 if (entry) {
@@ -281,11 +287,11 @@ if (editingEntry) {
           </div>
         </div>
         
-        {/* Time Entries */}
+{/* Today's Time Log */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-card">
           <div className="p-6 border-b border-slate-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900 font-display">Recent Time Entries</h2>
+              <h2 className="text-lg font-semibold text-slate-900 font-display">Today's Time Log</h2>
               <Button
                 onClick={() => handleOpenModal()}
                 variant="secondary"
@@ -298,10 +304,10 @@ if (editingEntry) {
           </div>
           
           <div className="p-6">
-            {timeEntries.length === 0 ? (
+            {todayEntries.length === 0 ? (
               <div className="text-center py-12">
                 <ApperIcon name="Clock" className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900 mb-2">No time entries yet</h3>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">No time logged today</h3>
                 <p className="text-slate-500 mb-4">Start tracking time to see your entries here</p>
                 <Button onClick={() => handleOpenModal()}>
                   <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
@@ -310,7 +316,7 @@ if (editingEntry) {
               </div>
             ) : (
               <div className="space-y-4">
-                {timeEntries.map((entry) => (
+                {todayEntries.map((entry) => (
                   <div key={entry.Id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
@@ -321,7 +327,7 @@ if (editingEntry) {
                       {entry.description && (
                         <p className="text-sm text-slate-600 mb-2">{entry.description}</p>
                       )}
-<div className="flex items-center space-x-4 text-xs text-slate-500">
+                      <div className="flex items-center space-x-4 text-xs text-slate-500">
                         <span>{entry.date}</span>
                         {!entry.isManual && (
                           <Badge variant="secondary" className="text-xs">
