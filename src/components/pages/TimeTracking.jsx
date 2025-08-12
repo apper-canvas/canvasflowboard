@@ -31,6 +31,17 @@ const [formData, setFormData] = useState({
   })
   const [editingEntry, setEditingEntry] = useState(null)
   
+  // Quick time entry state
+  const [showQuickEntry, setShowQuickEntry] = useState(false)
+  const [quickEntryData, setQuickEntryData] = useState({
+    taskId: "",
+    hours: "",
+    minutes: "",
+    description: "",
+    billable: true
+  })
+  const [recentTasks, setRecentTasks] = useState([])
+  
 useEffect(() => {
     const loadData = async () => {
       setLoading(true)
@@ -124,6 +135,65 @@ const filteredTasks = tasks.filter(task =>
     return entry.date === today
   })
   
+  // Get recent tasks for quick entry
+  const loadRecentTasks = async () => {
+    try {
+      const recent = await timeTrackingService.getRecentTasks()
+      setRecentTasks(recent)
+    } catch (err) {
+      console.error('Failed to load recent tasks:', err)
+    }
+  }
+  
+  // Handle quick time entry submission
+  const handleQuickTimeEntry = async () => {
+    if (!quickEntryData.taskId || (!quickEntryData.hours && !quickEntryData.minutes)) {
+      toast.error("Please select a task and enter time")
+      return
+    }
+    
+    const hours = parseInt(quickEntryData.hours) || 0
+    const minutes = parseInt(quickEntryData.minutes) || 0
+    const totalMinutes = (hours * 60) + minutes
+    
+    if (totalMinutes <= 0) {
+      toast.error("Please enter a valid time duration")
+      return
+    }
+    
+    try {
+      const selectedTask = recentTasks.find(task => task.Id === parseInt(quickEntryData.taskId))
+      
+      const entryData = {
+        taskId: parseInt(quickEntryData.taskId),
+        projectId: selectedTask.projectId,
+        duration: totalMinutes * 60, // Convert to seconds
+        description: quickEntryData.description,
+        date: new Date().toISOString().split('T')[0],
+        billable: quickEntryData.billable,
+        isManual: true
+      }
+      
+      const newEntry = await timeTrackingService.create(entryData)
+      const enrichedEntry = enrichTimeEntries([newEntry], tasks, projects)[0]
+      setTimeEntries(prev => [enrichedEntry, ...prev])
+      
+      // Reset quick entry form
+      setQuickEntryData({
+        taskId: "",
+        hours: "",
+        minutes: "",
+        description: "",
+        billable: true
+      })
+      setShowQuickEntry(false)
+      
+      toast.success("Time entry logged successfully")
+    } catch (err) {
+      toast.error(err.message || "Failed to create time entry")
+    }
+  }
+  
   const handleOpenModal = (entry = null) => {
 if (entry) {
       setEditingEntry(entry)
@@ -193,7 +263,7 @@ if (editingEntry) {
     }
   }
   
-  const handleDeleteEntry = async (entryId) => {
+const handleDeleteEntry = async (entryId) => {
     if (!window.confirm("Are you sure you want to delete this time entry?")) {
       return
     }
@@ -206,6 +276,11 @@ if (editingEntry) {
       toast.error(err.message || "Failed to delete time entry")
     }
   }
+  
+  // Load recent tasks when component mounts
+  useEffect(() => {
+    loadRecentTasks()
+  }, [timeEntries]) // Reload when time entries change
   
   if (loading) {
     return (
@@ -277,7 +352,7 @@ if (editingEntry) {
           {/* Total Time */}
           <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-slate-900 font-display">Total</h3>
+<h3 className="text-lg font-semibold text-slate-900 font-display">Total</h3>
               <ApperIcon name="BarChart3" className="w-5 h-5 text-slate-500" />
             </div>
             <div className="text-2xl font-bold text-slate-900">
@@ -287,6 +362,124 @@ if (editingEntry) {
           </div>
         </div>
         
+        {/* Quick Time Entry */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-card">
+          <div className="p-6 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ApperIcon name="Zap" className="w-5 h-5 text-primary-600" />
+                <h2 className="text-lg font-semibold text-slate-900 font-display">Quick Time Entry</h2>
+                <Badge variant="secondary" className="text-xs">Recent Tasks</Badge>
+              </div>
+              <Button
+                onClick={() => setShowQuickEntry(!showQuickEntry)}
+                variant="ghost"
+                className="text-sm"
+              >
+                <ApperIcon 
+                  name={showQuickEntry ? "ChevronUp" : "ChevronDown"} 
+                  className="w-4 h-4" 
+                />
+              </Button>
+            </div>
+          </div>
+          
+          {showQuickEntry && (
+            <div className="p-6 bg-slate-50">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Task Selection */}
+                <div className="lg:col-span-5">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Recent Task
+                  </label>
+                  <Select
+                    value={quickEntryData.taskId}
+                    onChange={(e) => setQuickEntryData(prev => ({ ...prev, taskId: e.target.value }))}
+                    className="w-full"
+                  >
+                    <option value="">Select a recent task...</option>
+                    {recentTasks.map(task => (
+                      <option key={task.Id} value={task.Id}>
+                        {task.projectTitle} - {task.title}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                
+                {/* Time Input */}
+                <div className="lg:col-span-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Time Spent
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        min="0"
+                        max="23"
+                        value={quickEntryData.hours}
+                        onChange={(e) => setQuickEntryData(prev => ({ ...prev, hours: e.target.value }))}
+                        className="text-center"
+                      />
+                      <span className="text-xs text-slate-500 mt-1 block text-center">hrs</span>
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        min="0"
+                        max="59"
+                        value={quickEntryData.minutes}
+                        onChange={(e) => setQuickEntryData(prev => ({ ...prev, minutes: e.target.value }))}
+                        className="text-center"
+                      />
+                      <span className="text-xs text-slate-500 mt-1 block text-center">min</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Description */}
+                <div className="lg:col-span-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Description
+                  </label>
+                  <Input
+                    placeholder="What did you work on?"
+                    value={quickEntryData.description}
+                    onChange={(e) => setQuickEntryData(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+                
+                {/* Submit Button */}
+                <div className="lg:col-span-1 flex items-end">
+                  <Button
+                    onClick={handleQuickTimeEntry}
+                    className="w-full"
+                    disabled={!quickEntryData.taskId || (!quickEntryData.hours && !quickEntryData.minutes)}
+                  >
+                    <ApperIcon name="Plus" className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Billable Toggle */}
+              <div className="mt-4 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="quick-billable"
+                  checked={quickEntryData.billable}
+                  onChange={(e) => setQuickEntryData(prev => ({ ...prev, billable: e.target.checked }))}
+                  className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="quick-billable" className="text-sm text-slate-700">
+                  Billable time
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+
 {/* Today's Time Log */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-card">
           <div className="p-6 border-b border-slate-200">
@@ -308,10 +501,10 @@ if (editingEntry) {
               <div className="text-center py-12">
                 <ApperIcon name="Clock" className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">No time logged today</h3>
-                <p className="text-slate-500 mb-4">Start tracking time to see your entries here</p>
-                <Button onClick={() => handleOpenModal()}>
-                  <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
-                  Log Your First Entry
+                <p className="text-slate-500 mb-4">Use the quick entry form above or start tracking time to see your entries here</p>
+                <Button onClick={() => setShowQuickEntry(true)}>
+                  <ApperIcon name="Zap" className="w-4 h-4 mr-2" />
+                  Quick Log Time
                 </Button>
               </div>
             ) : (

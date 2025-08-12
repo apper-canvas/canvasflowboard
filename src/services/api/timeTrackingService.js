@@ -102,12 +102,43 @@ export const timeTrackingService = {
     })
   },
 
-  async getTodayEntries() {
+async getTodayEntries() {
     const today = new Date().toISOString().split('T')[0]
     await delay(150)
     return timeEntries.filter(e => e.date === today)
   },
 
+  async getRecentTasks() {
+    await delay(200)
+    // Get unique task IDs from time entries in the last 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const recentEntries = timeEntries.filter(entry => entry.date >= sevenDaysAgo)
+    const recentTaskIds = [...new Set(recentEntries.map(entry => entry.taskId))]
+    
+    // Import task and project services dynamically to avoid circular imports
+    const { taskService } = await import('./taskService.js')
+    const { projectService } = await import('./projectService.js')
+    
+    const tasks = await taskService.getAll()
+    const projects = await projectService.getAll()
+    
+    // Return tasks with project info, sorted by most recent usage
+    const recentTasks = recentTaskIds
+      .map(taskId => {
+        const task = tasks.find(t => t.Id === taskId)
+        const project = projects.find(p => p.Id === task?.projectId)
+        return task ? { ...task, projectTitle: project?.title || 'Unknown Project' } : null
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        // Sort by most recent time entry
+        const aLatest = Math.max(...recentEntries.filter(e => e.taskId === a.Id).map(e => new Date(e.createdAt).getTime()))
+        const bLatest = Math.max(...recentEntries.filter(e => e.taskId === b.Id).map(e => new Date(e.createdAt).getTime()))
+        return bLatest - aLatest
+      })
+    
+    return recentTasks
+  },
 async create(entryData) {
     await delay(300)
     const newId = Math.max(...timeEntries.map(e => e.Id), 0) + 1
