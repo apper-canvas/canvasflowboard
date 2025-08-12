@@ -168,8 +168,7 @@ async toggleComplete(id) {
     
     return mainTasks.map(buildTaskTree)
   },
-
-  getTaskDepth(taskId) {
+getTaskDepth(taskId) {
     let depth = 0
     let currentTask = tasks.find(t => t.Id === parseInt(taskId))
     
@@ -179,6 +178,5 @@ async toggleComplete(id) {
     }
     
     return depth
-return depth
   }
 }

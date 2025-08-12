@@ -272,8 +272,10 @@ const filteredTasks = tasks.filter(task => {
             onAddSubtask={handleCreateSubtask}
             onUpdateStatus={handleUpdateStatus}
           />
-        )}
-<Modal
+)}
+
+      {/* Task Modal */}
+      <Modal
         isOpen={showTaskModal}
         onClose={() => {
           setShowTaskModal(false)
@@ -293,11 +295,9 @@ const filteredTasks = tasks.filter(task => {
             setParentTaskId(null)
           }}
         />
-      </div>
-      
-      {/* Modals */}
       </Modal>
       
+      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteDialog}
         onClose={() => {
@@ -307,9 +307,10 @@ const filteredTasks = tasks.filter(task => {
         onConfirm={handleConfirmDelete}
         title="Delete Task"
         message={`Are you sure you want to delete "${taskToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
+confirmText="Delete"
         variant="danger"
       />
+    </div>
     </div>
   )
 }
