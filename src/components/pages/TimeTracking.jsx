@@ -1,60 +1,54 @@
 import React, { useState, useEffect } from "react"
+import { toast } from "react-toastify"
 import Header from "@/components/organisms/Header"
 import Button from "@/components/atoms/Button"
 import Select from "@/components/atoms/Select"
+import Input from "@/components/atoms/Input"
 import Badge from "@/components/atoms/Badge"
 import ApperIcon from "@/components/ApperIcon"
+import Modal from "@/components/molecules/Modal"
 import { projectService } from "@/services/api/projectService"
 import { taskService } from "@/services/api/taskService"
-
+import { timeTrackingService } from "@/services/api/timeTrackingService"
 const TimeTracking = () => {
-  const [projects, setProjects] = useState([])
+const [projects, setProjects] = useState([])
   const [tasks, setTasks] = useState([])
-  const [selectedProject, setSelectedProject] = useState("")
-  const [selectedTask, setSelectedTask] = useState("")
-  const [isRunning, setIsRunning] = useState(false)
-  const [time, setTime] = useState(0)
-  const [description, setDescription] = useState("")
+  const [timeEntries, setTimeEntries] = useState([])
+  const [timer, setTimer] = useState(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [loading, setLoading] = useState(true)
   
-  // Mock time entries for demonstration
-  const [timeEntries] = useState([
-    {
-      id: 1,
-      projectName: "Website Redesign",
-      taskName: "Design new homepage layout",
-      duration: 3600, // 1 hour in seconds
-      description: "Working on wireframes and mockups",
-      date: "2024-01-25"
-    },
-    {
-      id: 2,
-      projectName: "Mobile App Development",
-      taskName: "Research cross-platform frameworks",
-      duration: 7200, // 2 hours in seconds
-      description: "Comparing React Native vs Flutter",
-      date: "2024-01-24"
-    },
-    {
-      id: 3,
-      projectName: "Marketing Campaign Q1",
-      taskName: "Create social media content",
-      duration: 5400, // 1.5 hours in seconds
-      description: "Designing posts for Instagram and Facebook",
-      date: "2024-01-23"
-    }
-  ])
+  // Manual entry form state
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    projectId: "",
+    taskId: "",
+    date: new Date().toISOString().split('T')[0],
+    hours: "",
+    minutes: "",
+    description: ""
+  })
+  const [editingEntry, setEditingEntry] = useState(null)
   
-  useEffect(() => {
+useEffect(() => {
     const loadData = async () => {
+      setLoading(true)
       try {
-        const [projectsData, tasksData] = await Promise.all([
+        const [projectsData, tasksData, entriesData, activeTimer] = await Promise.all([
           projectService.getAll(),
-          taskService.getAll()
+          taskService.getAll(),
+          timeTrackingService.getAll(),
+          timeTrackingService.getActiveTimer()
         ])
         setProjects(projectsData)
         setTasks(tasksData)
+        setTimeEntries(enrichTimeEntries(entriesData, tasksData, projectsData))
+        setTimer(activeTimer)
       } catch (err) {
         console.error("Failed to load data:", err)
+        toast.error("Failed to load time tracking data")
+      } finally {
+        setLoading(false)
       }
     }
     
@@ -63,21 +57,32 @@ const TimeTracking = () => {
   
   useEffect(() => {
     let interval = null
-    if (isRunning) {
+    if (timer?.isRunning) {
       interval = setInterval(() => {
-        setTime(time => time + 1)
+        const now = new Date()
+        const startTime = new Date(timer.startTime)
+        const sessionTime = Math.floor((now - startTime) / 1000)
+        setCurrentTime(timer.elapsedTime + sessionTime)
       }, 1000)
-    } else if (!isRunning && time !== 0) {
-      clearInterval(interval)
+    } else {
+      setCurrentTime(timer?.elapsedTime || 0)
     }
-    return () => clearInterval(interval)
-  }, [isRunning, time])
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [timer])
   
-  const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600)
-    const mins = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+const enrichTimeEntries = (entries, tasksData, projectsData) => {
+    return entries.map(entry => {
+      const task = tasksData.find(t => t.Id === entry.taskId)
+      const project = projectsData.find(p => p.Id === entry.projectId)
+      return {
+        ...entry,
+        taskName: task?.title || "Unknown Task",
+        projectName: project?.name || "Unknown Project"
+      }
+    })
   }
   
   const formatDuration = (seconds) => {
@@ -90,198 +95,379 @@ const TimeTracking = () => {
     return `${minutes}m`
   }
   
-  const handleStart = () => {
-    if (selectedProject && selectedTask) {
-      setIsRunning(true)
-    }
-  }
-  
-  const handleStop = () => {
-    setIsRunning(false)
-  }
-  
-  const handleReset = () => {
-    setTime(0)
-    setIsRunning(false)
-  }
-  
-  const filteredTasks = tasks.filter(task => 
-    task.projectId === parseInt(selectedProject)
-  )
-  
-  const getSelectedProjectName = () => {
-    const project = projects.find(p => p.Id === parseInt(selectedProject))
-    return project?.name || ""
-  }
-  
-  const getSelectedTaskName = () => {
-    const task = tasks.find(t => t.Id === parseInt(selectedTask))
-    return task?.title || ""
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
   
   const getTotalTime = () => {
     return timeEntries.reduce((total, entry) => total + entry.duration, 0)
   }
   
-  return (
-    <div className="flex-1 flex flex-col">
-      <Header 
-        title="Time Tracking" 
-        subtitle="Track time spent on projects and tasks"
-      />
+  const getTodayTime = () => {
+    const today = new Date().toISOString().split('T')[0]
+    return timeEntries
+      .filter(entry => entry.date === today)
+      .reduce((total, entry) => total + entry.duration, 0)
+  }
+  
+  const filteredTasks = tasks.filter(task => 
+    task.projectId === parseInt(formData.projectId)
+  )
+  
+  const handleOpenModal = (entry = null) => {
+    if (entry) {
+      setEditingEntry(entry)
+      setFormData({
+        projectId: entry.projectId.toString(),
+        taskId: entry.taskId.toString(),
+        date: entry.date,
+        hours: Math.floor(entry.duration / 3600).toString(),
+        minutes: Math.floor((entry.duration % 3600) / 60).toString(),
+        description: entry.description || ""
+      })
+    } else {
+      setEditingEntry(null)
+      setFormData({
+        projectId: "",
+        taskId: "",
+        date: new Date().toISOString().split('T')[0],
+        hours: "",
+        minutes: "",
+        description: ""
+      })
+    }
+    setIsModalOpen(true)
+  }
+  
+  const handleSubmitEntry = async () => {
+    if (!formData.projectId || !formData.taskId || (!formData.hours && !formData.minutes)) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+    
+    const duration = (parseInt(formData.hours || 0) * 3600) + (parseInt(formData.minutes || 0) * 60)
+    
+    try {
+      if (editingEntry) {
+        await timeTrackingService.update(editingEntry.Id, {
+          projectId: formData.projectId,
+          taskId: formData.taskId,
+          date: formData.date,
+          duration,
+          description: formData.description
+        })
+        toast.success("Time entry updated successfully")
+      } else {
+        await timeTrackingService.create({
+          projectId: formData.projectId,
+          taskId: formData.taskId,
+          date: formData.date,
+          duration,
+          description: formData.description
+        })
+        toast.success("Time entry logged successfully")
+      }
       
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Timer */}
-          <div className="xl:col-span-1">
-            <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-6 font-display">Timer</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                    Project
-                  </label>
-                  <Select
-                    value={selectedProject}
-                    onChange={(e) => {
-                      setSelectedProject(e.target.value)
-                      setSelectedTask("")
-                    }}
-                  >
-                    <option value="">Select a project</option>
-                    {projects.map(project => (
-                      <option key={project.Id} value={project.Id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                    Task
-                  </label>
-                  <Select
-                    value={selectedTask}
-                    onChange={(e) => setSelectedTask(e.target.value)}
-                    disabled={!selectedProject}
-                  >
-                    <option value="">Select a task</option>
-                    {filteredTasks.map(task => (
-                      <option key={task.Id} value={task.Id}>
-                        {task.title}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What are you working on?"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm resize-none"
-                    rows={3}
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-8 text-center">
-                <div className="bg-slate-50 rounded-lg p-8 mb-6">
-                  <div className="text-4xl font-mono font-bold text-slate-900 mb-2">
-                    {formatTime(time)}
-                  </div>
-                  {selectedProject && selectedTask && (
-                    <div className="text-sm text-slate-600">
-                      <p className="font-medium">{getSelectedProjectName()}</p>
-                      <p>{getSelectedTaskName()}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex justify-center space-x-3">
-                  {!isRunning ? (
-                    <Button 
-                      onClick={handleStart}
-                      disabled={!selectedProject || !selectedTask}
-                      className="flex-1"
-                    >
-                      <ApperIcon name="Play" className="w-4 h-4 mr-2" />
-                      Start
-                    </Button>
-                  ) : (
-                    <Button onClick={handleStop} variant="danger" className="flex-1">
-                      <ApperIcon name="Pause" className="w-4 h-4 mr-2" />
-                      Stop
-                    </Button>
-                  )}
-                  <Button onClick={handleReset} variant="secondary">
-                    <ApperIcon name="RotateCcw" className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Time Entries */}
-          <div className="xl:col-span-2">
-            <div className="bg-white rounded-lg border border-slate-200 shadow-card">
-              <div className="p-6 border-b border-slate-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900 font-display">Recent Time Entries</h2>
-                  <div className="text-sm text-slate-600">
-                    Total: <span className="font-semibold">{formatDuration(getTotalTime())}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                {timeEntries.length === 0 ? (
-                  <div className="text-center py-8">
-                    <ApperIcon name="Clock" className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-slate-500">No time entries yet</p>
-                    <p className="text-sm text-slate-400">Start tracking time to see your entries here</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {timeEntries.map((entry) => (
-                      <div key={entry.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4 className="font-medium text-slate-900">{entry.projectName}</h4>
-                            <span className="text-slate-400">•</span>
-                            <span className="text-slate-600 text-sm">{entry.taskName}</span>
-                          </div>
-                          {entry.description && (
-                            <p className="text-sm text-slate-600 mb-2">{entry.description}</p>
-                          )}
-                          <div className="flex items-center space-x-4 text-xs text-slate-500">
-                            <span>{entry.date}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-3">
-                          <Badge variant="primary">{formatDuration(entry.duration)}</Badge>
-                          <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-                            <ApperIcon name="Edit" className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-slate-400 hover:text-red-600 transition-colors">
-                            <ApperIcon name="Trash2" className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+      // Refresh data
+      const [entriesData] = await Promise.all([
+        timeTrackingService.getAll()
+      ])
+      setTimeEntries(enrichTimeEntries(entriesData, tasks, projects))
+      setIsModalOpen(false)
+    } catch (err) {
+      toast.error(err.message || "Failed to save time entry")
+    }
+  }
+  
+  const handleDeleteEntry = async (entryId) => {
+    if (!window.confirm("Are you sure you want to delete this time entry?")) {
+      return
+    }
+    
+    try {
+      await timeTrackingService.delete(entryId)
+      setTimeEntries(prev => prev.filter(entry => entry.Id !== entryId))
+      toast.success("Time entry deleted successfully")
+    } catch (err) {
+      toast.error(err.message || "Failed to delete time entry")
+    }
+  }
+  
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col">
+        <Header 
+          title="Time Tracking" 
+          subtitle="Track time spent on projects and tasks"
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <ApperIcon name="Clock" className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <p className="text-slate-500">Loading time tracking data...</p>
           </div>
         </div>
       </div>
+    )
+  }
+  
+  return (
+<div className="flex-1 flex flex-col">
+      <Header 
+        title="Time Tracking" 
+        subtitle="Track time spent on projects and tasks"
+        action={
+          <Button onClick={() => handleOpenModal()}>
+            <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
+            Log Time
+          </Button>
+        }
+      />
+      
+      <div className="flex-1 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Today's Summary */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold text-slate-900 font-display">Today</h3>
+              <ApperIcon name="Calendar" className="w-5 h-5 text-slate-500" />
+            </div>
+            <div className="text-2xl font-bold text-primary-600">
+              {formatDuration(getTodayTime())}
+            </div>
+            <p className="text-sm text-slate-600">Total time logged</p>
+          </div>
+          
+          {/* Active Timer Status */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold text-slate-900 font-display">Active Timer</h3>
+              <ApperIcon name="Clock" className="w-5 h-5 text-slate-500" />
+            </div>
+            {timer?.isRunning ? (
+              <>
+                <div className="text-2xl font-bold text-green-600 font-mono">
+                  {formatTime(currentTime)}
+                </div>
+                <p className="text-sm text-slate-600">Currently running</p>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-slate-400">
+                  00:00:00
+                </div>
+                <p className="text-sm text-slate-600">No active timer</p>
+              </>
+            )}
+          </div>
+          
+          {/* Total Time */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold text-slate-900 font-display">Total</h3>
+              <ApperIcon name="BarChart3" className="w-5 h-5 text-slate-500" />
+            </div>
+            <div className="text-2xl font-bold text-slate-900">
+              {formatDuration(getTotalTime())}
+            </div>
+            <p className="text-sm text-slate-600">All time logged</p>
+          </div>
+        </div>
+        
+        {/* Time Entries */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-card">
+          <div className="p-6 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900 font-display">Recent Time Entries</h2>
+              <Button
+                onClick={() => handleOpenModal()}
+                variant="secondary"
+                className="text-sm"
+              >
+                <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
+                Add Entry
+              </Button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            {timeEntries.length === 0 ? (
+              <div className="text-center py-12">
+                <ApperIcon name="Clock" className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 mb-2">No time entries yet</h3>
+                <p className="text-slate-500 mb-4">Start tracking time to see your entries here</p>
+                <Button onClick={() => handleOpenModal()}>
+                  <ApperIcon name="Plus" className="w-4 h-4 mr-2" />
+                  Log Your First Entry
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {timeEntries.map((entry) => (
+                  <div key={entry.Id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h4 className="font-medium text-slate-900">{entry.projectName}</h4>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-slate-600 text-sm">{entry.taskName}</span>
+                      </div>
+                      {entry.description && (
+                        <p className="text-sm text-slate-600 mb-2">{entry.description}</p>
+                      )}
+                      <div className="flex items-center space-x-4 text-xs text-slate-500">
+                        <span>{entry.date}</span>
+                        {!entry.isManual && (
+                          <Badge variant="secondary" className="text-xs">
+                            Auto
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <Badge variant="primary" className="font-mono">
+                        {formatDuration(entry.duration)}
+                      </Badge>
+                      <button 
+                        onClick={() => handleOpenModal(entry)}
+                        className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <ApperIcon name="Edit" className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteEntry(entry.Id)}
+                        className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                      >
+                        <ApperIcon name="Trash2" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Manual Entry Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingEntry ? "Edit Time Entry" : "Log Time Manually"}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                Project *
+              </label>
+              <Select
+                value={formData.projectId}
+                onChange={(e) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    projectId: e.target.value,
+                    taskId: ""
+                  }))
+                }}
+              >
+                <option value="">Select a project</option>
+                {projects.map(project => (
+                  <option key={project.Id} value={project.Id}>
+                    {project.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                Task *
+              </label>
+              <Select
+                value={formData.taskId}
+                onChange={(e) => setFormData(prev => ({ ...prev, taskId: e.target.value }))}
+                disabled={!formData.projectId}
+              >
+                <option value="">Select a task</option>
+                {filteredTasks.map(task => (
+                  <option key={task.Id} value={task.Id}>
+                    {task.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+              Date *
+            </label>
+            <Input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                Hours
+              </label>
+              <Input
+                type="number"
+                min="0"
+                max="24"
+                placeholder="0"
+                value={formData.hours}
+                onChange={(e) => setFormData(prev => ({ ...prev, hours: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                Minutes
+              </label>
+              <Input
+                type="number"
+                min="0"
+                max="59"
+                placeholder="0"
+                value={formData.minutes}
+                onChange={(e) => setFormData(prev => ({ ...prev, minutes: e.target.value }))}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+              Description (Optional)
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="What did you work on?"
+              className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm resize-none"
+              rows={3}
+            />
+          </div>
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitEntry}>
+              {editingEntry ? "Update Entry" : "Log Time"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -21,7 +21,7 @@ const Header = ({ title, subtitle, action, onMobileMenuClick }) => {
           </div>
         </div>
         
-        {action && (
+{action && (
           <div className="flex items-center space-x-3">
             {action}
           </div>
