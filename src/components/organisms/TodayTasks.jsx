@@ -1,8 +1,8 @@
-import React, { useMemo } from "react"
-import { motion } from "framer-motion"
-import Badge from "@/components/atoms/Badge"
-import ApperIcon from "@/components/ApperIcon"
-import { isToday } from "date-fns"
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
+import { isToday } from "date-fns";
+import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
 
 const TodayTasks = ({ tasks, projects, onToggleComplete, onAddSubtask }) => {
 const todayTasks = useMemo(() => {
@@ -20,10 +20,11 @@ const todayTasks = useMemo(() => {
     return project?.name || "Unknown Project"
   }
   
-  const getPriorityColor = (priority) => {
+const getPriorityColor = (priority) => {
     switch (priority) {
-      case "High": return "error"
-      case "Medium": return "warning"
+      case "Critical": return "error"
+      case "High": return "warning" 
+      case "Medium": return "info"
       case "Low": return "success"
       default: return "default"
     }
@@ -51,14 +52,19 @@ const todayTasks = useMemo(() => {
               const subtasks = getSubtasks(task.Id)
               const completedSubtasks = subtasks.filter(sub => sub.completed).length
               
-              const renderTask = (taskItem, depth = 0) => (
+const renderTask = (taskItem, depth = 0) => {
+                const blockedByTasks = taskItem.blockedBy ? 
+                  taskItem.blockedBy.map(id => tasks.find(t => t.Id === id)).filter(Boolean) : []
+                const isBlocked = blockedByTasks.length > 0
+
+                return (
                 <motion.div
                   key={taskItem.Id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
                   className={`flex items-start space-x-3 p-3 rounded-lg border hover:bg-slate-50 transition-colors ${
-                    taskItem.completed ? "opacity-75 bg-slate-50" : "bg-white border-slate-200"
+                    taskItem.completed ? "opacity-75 bg-slate-50" : isBlocked ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"
                   }`}
                   style={{ marginLeft: depth * 16 }}
                 >
@@ -105,9 +111,15 @@ const todayTasks = useMemo(() => {
                           {getProjectName(taskItem.projectId)}
                         </p>
                       </div>
-                      <Badge variant={getPriorityColor(taskItem.priority)} className="text-xs ml-2">
+<Badge variant={getPriorityColor(taskItem.priority)} className="text-xs ml-2">
                         {taskItem.priority}
                       </Badge>
+                      {isBlocked && (
+                        <div className="flex items-center gap-1 ml-2">
+                          <ApperIcon name="AlertTriangle" size={12} className="text-amber-500" />
+                          <span className="text-xs text-amber-600">Blocked</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -117,7 +129,7 @@ const todayTasks = useMemo(() => {
                 <div key={task.Id}>
                   {renderTask(task, 0)}
                   {subtasks.map(subtask => renderTask(subtask, 1))}
-                </div>
+</div>
               )
             })}
           </div>

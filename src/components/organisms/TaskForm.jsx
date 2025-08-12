@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from "react"
-import Button from "@/components/atoms/Button"
-import FormField from "@/components/molecules/FormField"
-import Select from "@/components/atoms/Select"
-import Textarea from "@/components/atoms/Textarea"
-import { format } from "date-fns"
-import ApperIcon from "@/components/ApperIcon"
+import React, { useEffect, useState } from "react";
+import { format } from "date-fns";
+import ApperIcon from "@/components/ApperIcon";
+import FormField from "@/components/molecules/FormField";
+import Select from "@/components/atoms/Select";
+import Button from "@/components/atoms/Button";
+import Textarea from "@/components/atoms/Textarea";
 
-const TaskForm = ({ task, projectId, parentId, onSubmit, onCancel }) => {
+const TaskForm = ({ task, projectId, parentId, onSubmit, onCancel, allTasks = [] }) => {
 const [formData, setFormData] = useState({
     title: "",
     description: "",
     priority: "Medium",
     dueDate: "",
     projectId: projectId || "",
-    parentId: parentId || ""
+    parentId: parentId || "",
+    blockedBy: []
   })
   
   const [errors, setErrors] = useState({})
@@ -26,10 +27,18 @@ useEffect(() => {
         priority: task.priority,
         dueDate: format(new Date(task.dueDate), "yyyy-MM-dd"),
         projectId: task.projectId,
-        parentId: task.parentId || ""
+        parentId: task.parentId || "",
+        blockedBy: task.blockedBy || []
       })
     }
   }, [task])
+
+  // Available tasks for dependencies (excluding current task and its descendants)
+  const availableTasksForDependency = allTasks.filter(t => 
+    t.Id !== task?.Id && // Not the current task
+    t.parentId !== task?.Id && // Not a subtask of current task
+    (!task?.parentId || t.Id !== task.parentId) // Not the parent of current task
+  )
   
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -65,11 +74,17 @@ const taskData = {
         ...formData,
         dueDate: new Date(formData.dueDate).toISOString(),
         completed: task?.completed || false,
-        parentId: formData.parentId || parentId || null
+        parentId: formData.parentId || parentId || null,
+        blockedBy: formData.blockedBy.length > 0 ? formData.blockedBy : null
       }
       
       onSubmit(taskData)
     }
+  }
+
+  const handleDependencyChange = (e) => {
+    const selectedTaskIds = Array.from(e.target.selectedOptions).map(option => parseInt(option.value))
+    handleChange("blockedBy", selectedTaskIds)
   }
   
   return (
@@ -102,13 +117,14 @@ const taskData = {
           required
           error={errors.priority}
         >
-          <Select
+<Select
             value={formData.priority}
             onChange={(e) => handleChange("priority", e.target.value)}
           >
             <option value="Low">Low</option>
             <option value="Medium">Medium</option>
             <option value="High">High</option>
+            <option value="Critical">Critical</option>
           </Select>
         </FormField>
 <FormField
@@ -119,7 +135,28 @@ const taskData = {
           onChange={(e) => handleChange("dueDate", e.target.value)}
           error={errors.dueDate}
         />
-      </div>
+</div>
+
+        {/* Dependencies */}
+        {availableTasksForDependency.length > 0 && (
+          <FormField label="Dependencies (Blocked By)" error={""}>
+            <select
+              multiple
+              value={formData.blockedBy.map(String)}
+              onChange={handleDependencyChange}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
+            >
+              {availableTasksForDependency.map(availableTask => (
+                <option key={availableTask.Id} value={availableTask.Id}>
+                  {availableTask.title} ({availableTask.priority})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              Hold Ctrl/Cmd to select multiple tasks that must be completed before this task can start
+            </p>
+</FormField>
+        )}
       
       {parentId && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">

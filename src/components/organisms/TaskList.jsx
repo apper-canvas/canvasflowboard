@@ -14,8 +14,9 @@ const TaskList = ({ tasks, onToggleComplete, onEdit, onDelete, onAdd, onUpdateSt
   const [searchTerm, setSearchTerm] = useState('')
 const getPriorityColor = (priority) => {
     switch (priority) {
-      case "High": return "error"
-      case "Medium": return "warning"
+      case "Critical": return "error"
+      case "High": return "warning"
+      case "Medium": return "info"
       case "Low": return "success"
       default: return "default"
     }
@@ -95,8 +96,9 @@ const taskHierarchy = useMemo(() => {
     { value: 'Done', label: 'Done' }
   ]
 
-  const priorityOptions = [
+const priorityOptions = [
     { value: '', label: 'All Priority' },
+    { value: 'Critical', label: 'Critical' },
     { value: 'High', label: 'High' },
     { value: 'Medium', label: 'Medium' },
     { value: 'Low', label: 'Low' }
@@ -164,10 +166,12 @@ const taskHierarchy = useMemo(() => {
               const subtasks = getSubtasks(task.Id)
               const completedSubtasks = subtasks.filter(sub => sub.completed).length
               
-              const renderTask = (taskItem, depth = 0) => {
+const renderTask = (taskItem, depth = 0) => {
                 const taskUrgency = getUrgencyIcon(taskItem.dueDate)
                 const taskExpanded = expandedTasks.has(taskItem.Id)
-                
+                const blockedByTasks = taskItem.blockedBy ? 
+                  taskItem.blockedBy.map(id => tasks.find(t => t.Id === id)).filter(Boolean) : []
+                const isBlocked = blockedByTasks.length > 0
                 return (
                   <motion.div
                     key={taskItem.Id}
@@ -257,9 +261,19 @@ const taskHierarchy = useMemo(() => {
                                 >
                                   {taskItem.status}
                                 </Badge>
-                                <Badge variant={getPriorityColor(taskItem.priority)} className="text-xs">
+<Badge variant={getPriorityColor(taskItem.priority)} className="text-xs">
                                   {taskItem.priority}
                                 </Badge>
+                                
+                                {/* Dependency indicator */}
+                                {isBlocked && (
+                                  <div className="flex items-center gap-1">
+                                    <ApperIcon name="AlertTriangle" size={12} className="text-amber-500" />
+                                    <span className="text-xs text-amber-600">
+                                      Blocked by: {blockedByTasks.map(t => t.title).join(', ')}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
@@ -290,7 +304,7 @@ const taskHierarchy = useMemo(() => {
                     </div>
 
                     {/* Expanded Details */}
-                    <AnimatePresence>
+<AnimatePresence>
                       {taskExpanded && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
@@ -315,6 +329,27 @@ const taskHierarchy = useMemo(() => {
                                 </span>
                               </div>
                             </div>
+
+                            {/* Dependencies */}
+                            {blockedByTasks.length > 0 && (
+                              <div>
+                                <h5 className="font-medium text-slate-700 mb-2">Dependencies</h5>
+                                <div className="space-y-1">
+                                  <span className="text-sm text-amber-600 flex items-center gap-1">
+                                    <ApperIcon name="AlertTriangle" size={14} />
+                                    This task is blocked by:
+                                  </span>
+                                  {blockedByTasks.map(blockedTask => (
+                                    <div key={blockedTask.Id} className="flex items-center gap-2 text-xs text-slate-600 ml-5">
+                                      <Badge variant={getStatusColor(blockedTask.status)} className="text-xs">
+                                        {blockedTask.status}
+                                      </Badge>
+                                      <span>{blockedTask.title}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Status History */}
                             {taskItem.statusHistory && taskItem.statusHistory.length > 0 && (
@@ -346,12 +381,13 @@ const taskHierarchy = useMemo(() => {
                                   <button
                                     key={status}
                                     onClick={() => handleStatusClick(taskItem, status)}
-                                    disabled={taskItem.status === status}
+                                    disabled={taskItem.status === status || isBlocked}
                                     className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                                      taskItem.status === status
+                                      taskItem.status === status || isBlocked
                                         ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                                         : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
                                     }`}
+                                    title={isBlocked ? 'Cannot change status - task is blocked by dependencies' : ''}
                                   >
                                     {status}
                                   </button>
