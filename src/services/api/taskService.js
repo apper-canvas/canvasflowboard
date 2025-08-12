@@ -3,12 +3,12 @@ let tasks = [...tasksData.map(task => ({
   ...task,
   parentId: task.parentId || null,
   blockedBy: task.blockedBy || null,
-  status: task.completed ? 'Done' : 'To Do',
-  statusHistory: [{
-    status: task.completed ? 'Done' : 'To Do',
+status: task.status || (task.completed ? 'Done' : 'To Do'),
+  statusHistory: task.statusHistory || [{
+    status: task.status || (task.completed ? 'Done' : 'To Do'),
     timestamp: task.createdAt || new Date().toISOString()
   }],
-  lastUpdated: task.createdAt || new Date().toISOString()
+  lastUpdated: task.lastUpdated || task.createdAt || new Date().toISOString()
 }))]
 
 // Helper function to check for circular dependencies

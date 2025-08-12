@@ -13,6 +13,7 @@ import ProgressBar from "@/components/atoms/ProgressBar"
 import Loading from "@/components/ui/Loading"
 import Error from "@/components/ui/Error"
 import ApperIcon from "@/components/ApperIcon"
+import KanbanBoard from "@/components/organisms/KanbanBoard"
 import { formatDate, getUrgencyLevel, getUrgencyColor } from "@/utils/dateUtils"
 import { projectService } from "@/services/api/projectService"
 import { taskService } from "@/services/api/taskService"
@@ -26,13 +27,16 @@ const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   
-  // Modal states
+// Modal states
   const [showEditModal, setShowEditModal] = useState(false)
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showTaskDeleteDialog, setShowTaskDeleteDialog] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [taskToDelete, setTaskToDelete] = useState(null)
+  
+  // View state
+  const [viewMode, setViewMode] = useState('list') // 'list' or 'kanban'
 
   // Calculate comprehensive task statistics
   const taskStats = useMemo(() => {
@@ -187,11 +191,14 @@ const handleToggleTaskComplete = async (task) => {
       )
       toast.success(`Task ${updatedTask.completed ? 'completed' : 'reopened'}!`)
     } catch (err) {
-      toast.error("Failed to update task. Please try again.")
+toast.error("Failed to update task. Please try again.")
       console.error("Task toggle error:", err)
     }
   }
-  
+
+  const handleViewToggle = () => {
+    setViewMode(current => current === 'list' ? 'kanban' : 'list')
+  }
   if (loading) {
     return (
       <div className="flex-1 flex flex-col">
@@ -377,20 +384,57 @@ const handleToggleTaskComplete = async (task) => {
                 </div>
               </div>
             </div>
-          </div>
+</div>
           
           {/* Tasks */}
-<div className="lg:col-span-2">
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-lg border border-slate-200 shadow-card p-6">
-              <TaskList
-                tasks={tasks}
-                onToggleComplete={handleToggleTaskComplete}
-                onUpdateStatus={handleUpdateTaskStatus}
-                onEdit={handleEditTask}
-                onDelete={handleDeleteTask}
-                onAdd={handleAddTask}
-                projectId={project.Id}
-              />
+              {/* View Toggle */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={viewMode === 'list' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="flex items-center gap-2"
+                  >
+                    <ApperIcon name="List" className="w-4 h-4" />
+                    List
+                  </Button>
+                  <Button
+                    variant={viewMode === 'kanban' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setViewMode('kanban')}
+                    className="flex items-center gap-2"
+                  >
+                    <ApperIcon name="Columns" className="w-4 h-4" />
+                    Kanban
+                  </Button>
+                </div>
+              </div>
+
+              {/* Render appropriate view */}
+              {viewMode === 'list' ? (
+                <TaskList
+                  tasks={tasks}
+                  onToggleComplete={handleToggleTaskComplete}
+                  onUpdateStatus={handleUpdateTaskStatus}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTask}
+                  onAdd={handleAddTask}
+                  projectId={project.Id}
+                />
+              ) : (
+                <KanbanBoard
+                  tasks={tasks}
+                  onToggleComplete={handleToggleTaskComplete}
+                  onUpdateStatus={handleUpdateTaskStatus}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTask}
+                  onAdd={handleAddTask}
+                  projectId={project.Id}
+                />
+              )}
             </div>
           </div>
         </div>
