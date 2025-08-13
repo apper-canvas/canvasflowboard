@@ -15,7 +15,7 @@ import Login from "@/components/pages/Login";
 import PromptPassword from "@/components/pages/PromptPassword";
 import ErrorPage from "@/components/pages/ErrorPage";
 import ResetPassword from "@/components/pages/ResetPassword";
-import PlaceholderPage from "@/components/molecules/PlaceholderPage";
+import PlaceholderPage from "@/components/pages/PlaceholderPage";
 import { clearUser, setUser } from "@/store/userSlice";
 
 // Create auth context
