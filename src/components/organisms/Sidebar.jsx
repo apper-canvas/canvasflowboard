@@ -10,7 +10,7 @@ const navigation = [
   { name: "Tasks", href: "/tasks", icon: "CheckSquare" },
   { name: "Time Tracking", href: "/time", icon: "Clock" },
   { name: "Calendar", href: "/calendar", icon: "Calendar", disabled: true },
-  { name: "Reports", href: "/reports", icon: "BarChart3", disabled: true }
+  { name: "Reports", href: "/reports", icon: "BarChart3" }
 ]
 
 const Sidebar = ({ isMobileOpen, onMobileClose }) => {

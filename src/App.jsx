@@ -15,7 +15,7 @@ import Login from "@/components/pages/Login";
 import PromptPassword from "@/components/pages/PromptPassword";
 import ErrorPage from "@/components/pages/ErrorPage";
 import ResetPassword from "@/components/pages/ResetPassword";
-import PlaceholderPage from "@/components/pages/PlaceholderPage";
+import Reports from "@/components/pages/Reports";
 import { clearUser, setUser } from "@/store/userSlice";
 
 // Create auth context
@@ -130,23 +130,14 @@ function App() {
         <Route path="/error" element={<ErrorPage />} />
         <Route path="/prompt-password/:appId/:emailAddress/:provider" element={<PromptPassword />} />
         <Route path="/reset-password/:appId/:fields" element={<ResetPassword />} />
-        <Route path="/" element={<Layout />}>
+<Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="time" element={<TimeTracking />} />
 <Route path="calendar" element={<Calendar />} />
-          <Route 
-            path="reports" 
-            element={
-              <PlaceholderPage 
-                title="Reports" 
-                description="Generate detailed reports on project progress, team productivity, and time tracking analytics."
-                icon="BarChart3"
-              />
-            } 
-          />
+          <Route path="reports" element={<Reports />} />
         </Route>
       </Routes>
       
