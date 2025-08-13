@@ -1,24 +1,22 @@
-import React from "react"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
-import { ToastContainer } from "react-toastify"
-import Layout from "@/components/organisms/Layout"
-import Dashboard from "@/components/pages/Dashboard"
-import Projects from "@/components/pages/Projects"
-import ProjectDetail from "@/components/pages/ProjectDetail"
-import Tasks from "@/components/pages/Tasks"
-import TimeTracking from "@/components/pages/TimeTracking"
-import PlaceholderPage from "@/components/pages/PlaceholderPage"
-
-import { createContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useDispatch, useSelector } from 'react-redux'
-import { setUser, clearUser } from './store/userSlice'
-import Login from '@/components/pages/Login'
-import Signup from '@/components/pages/Signup'
-import Callback from '@/components/pages/Callback'
-import ErrorPage from '@/components/pages/ErrorPage'
-import ResetPassword from '@/components/pages/ResetPassword'
-import PromptPassword from '@/components/pages/PromptPassword'
+import React, { createContext, useEffect, useState } from "react";
+import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import Calendar from "@/components/pages/Calendar";
+import { useDispatch, useSelector } from "react-redux";
+import Layout from "@/components/organisms/Layout";
+import Callback from "@/components/pages/Callback";
+import ProjectDetail from "@/components/pages/ProjectDetail";
+import TimeTracking from "@/components/pages/TimeTracking";
+import Projects from "@/components/pages/Projects";
+import Signup from "@/components/pages/Signup";
+import Tasks from "@/components/pages/Tasks";
+import Dashboard from "@/components/pages/Dashboard";
+import Login from "@/components/pages/Login";
+import PromptPassword from "@/components/pages/PromptPassword";
+import ErrorPage from "@/components/pages/ErrorPage";
+import ResetPassword from "@/components/pages/ResetPassword";
+import PlaceholderPage from "@/components/molecules/PlaceholderPage";
+import { clearUser, setUser } from "@/store/userSlice";
 
 // Create auth context
 export const AuthContext = createContext(null)
@@ -138,16 +136,7 @@ function App() {
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="time" element={<TimeTracking />} />
-          <Route 
-            path="calendar" 
-            element={
-              <PlaceholderPage 
-                title="Calendar" 
-                description="View and manage project deadlines, task due dates, and schedule meetings with team members."
-                icon="Calendar"
-              />
-            } 
-          />
+<Route path="calendar" element={<Calendar />} />
           <Route 
             path="reports" 
             element={
